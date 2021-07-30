@@ -35,6 +35,9 @@ def load_zar( operator, context ):
             for cmb in cmbList:
                 cmbBytesList.append(cmb.bytes)
         else:
+            # TODO: Is this robust enough?
+            # If no models exist, this might be a scene? Scene models are in a
+            # separate file, try to look for that.
             realFilePath = filePath.replace(".zar", "_0_info.zsi")
             if os.path.isfile(realFilePath):
                 with open(realFilePath, "rb") as f:
