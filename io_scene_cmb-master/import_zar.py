@@ -1,5 +1,6 @@
 import sys, io, os, array, bpy, bmesh, operator, math, mathutils
 
+from .common import CLIP_START, CLIP_END, GLOBAL_SCALE
 from .import_cmb import LoadModelFromStream
 from .zar import Zar
 
@@ -14,8 +15,8 @@ def load_zar( operator, context ):
     for screen in bpy.data.screens:
         for area in screen.areas:
             if area.type == 'VIEW_3D':
-                area.spaces.active.clip_start = 10.0
-                area.spaces.active.clip_end = 100000.0
+                area.spaces.active.clip_start = CLIP_START
+                area.spaces.active.clip_end = CLIP_END
 
     bpy.context.scene.render.engine = 'CYCLES'# Idc if you don't like cycles
 

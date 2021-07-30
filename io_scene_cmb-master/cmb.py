@@ -3,8 +3,12 @@ from .utils import (align, readDataType, readString, readArray, readFloat,
                     readUInt32, readInt32, readUShort,
                     readShort, readByte, readUByte)
 from .cmbEnums import *
+from .common import GLOBAL_SCALE
 
 Version = CmbVersion.OoT3D
+
+def applyGlobalScale(values):
+    return list(map(lambda x: x * GLOBAL_SCALE, values))
 
 class Cmb(object):
     def __init__(self):
@@ -225,6 +229,7 @@ class Sepd(object):
             self.Max = readArray(f, 3)# Min coordinate of the shape
 
         self.position = VertexAttribute().read(f)
+
         self.normal = VertexAttribute().read(f)
         self.tangents = VertexAttribute().read(f) if (Version > 6) else self.tangents
         self.color = VertexAttribute().read(f)
@@ -561,7 +566,7 @@ class Bone(object):
         self.parentId = readShort(f)
         self.scale = readArray(f,3)
         self.rotation = readArray(f,3)
-        self.translation = readArray(f,3)
+        self.translation = applyGlobalScale(readArray(f,3))
         self.unk0 = readUInt32(f) if (Version > 6) else 0 # I assume a crc32 of the bone name
         return self
 

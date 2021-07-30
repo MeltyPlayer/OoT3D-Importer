@@ -5,6 +5,7 @@ from .ctrTexture import DecodeBuffer
 from .cmbEnums import SkinningMode, DataTypes
 from .utils import (readArray, readDataType, readUInt32, readString, getFlag, getDataTypeSize,
                     getWorldTransform, transformPosition, transformNormal)
+from .common import CLIP_START, CLIP_END, GLOBAL_SCALE
 
 #TODO: Clean up
 def load_cmb( operator, context ):
@@ -17,8 +18,8 @@ def load_cmb( operator, context ):
     for screen in bpy.data.screens:
         for area in screen.areas:
             if area.type == 'VIEW_3D':
-                area.spaces.active.clip_start = 10.0
-                area.spaces.active.clip_end = 100000.0
+                area.spaces.active.clip_start = CLIP_START
+                area.spaces.active.clip_end = CLIP_END
 
     bpy.context.scene.render.engine = 'CYCLES'# Idc if you don't like cycles
 
@@ -189,7 +190,7 @@ def LoadModelFromStream(f):
 
             # Position
             f.seek(cmb.vatrOfs + vb.position.startOfs + shape.position.start + 3 * getDataTypeSize(shape.position.dataType) * i + startOff)
-            bmv = bm.verts.new([e * shape.position.scale for e in readArray(f, 3, shape.position.dataType)])
+            bmv = bm.verts.new([e * shape.position.scale * GLOBAL_SCALE for e in readArray(f, 3, shape.position.dataType)])
 
             if(shape.primitiveSets[0].skinningMode != SkinningMode.Smooth):
                 bmv.co = transformPosition(bmv.co, boneTransforms[bindices[i]])
