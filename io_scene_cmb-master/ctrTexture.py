@@ -64,7 +64,7 @@ def __DecodeRGBA5551(Buffer, Address, Value):
     R = ((Value >>  1) & 0x1f) << 3
     G = ((Value >>  6) & 0x1f) << 3
     B = ((Value >> 11) & 0x1f) << 3
-    
+
     __SetColor(Buffer, Address, (Value & 1) * 0xff,
                 B | (B >> 5),
                 G | (G >> 5),
@@ -74,7 +74,7 @@ def __DecodeRGB565(Buffer, Address, Value):
     R = ((Value >>  0) & 0x1f) << 3
     G = ((Value >>  5) & 0x3f) << 2
     B = ((Value >> 11) & 0x1f) << 3
-    
+
     __SetColor(Buffer, Address, 0xff,
                 B | (B >> 5),
                 G | (G >> 6),
@@ -84,7 +84,7 @@ def __DecodeRGBA4(Buffer, Address, Value):
     R = (Value >>  4) & 0xf
     G = (Value >>  8) & 0xf
     B = (Value >> 12) & 0xf
-    
+
     __SetColor(Buffer, Address, (Value & 0xf) | (Value << 4),
                 B | (B << 4),
                 G | (G << 4),
@@ -104,7 +104,7 @@ def __ETC1Decompress(Input, Width, Height, Alpha):
                 if (Alpha):
                     for _ in range(8):
                         alp.append(Input[Offset])
-                        Offset += 1 
+                        Offset += 1
                     AlphaBlock = __ReadULong(alp)
 
                 for _ in range(8):
@@ -126,9 +126,9 @@ def __ETC1Decompress(Input, Width, Height, Alpha):
                         AlphaShift = ((PX & 3) * 4 + (PY & 3)) << 2
 
                         A = (AlphaBlock >> AlphaShift) & 0xf
-                        
+
                         Output[OOffs + 3] = int((A << 4) | A) / 255
-                        
+
                         TileOffset += 4
 
     return Output
@@ -136,12 +136,12 @@ def __ETC1Decompress(Input, Width, Height, Alpha):
 def __ETC1Tile(Block):
     BlockLow  = Block >> 32
     BlockHigh = Block >>  0
-    
+
     Flip = (BlockHigh & 0x1000000) != 0
     Diff = (BlockHigh & 0x2000000) != 0
-    
-    R1, G1, B1 = 0, 0, 0 
-    R2, G2, B2 = 0, 0, 0 
+
+    R1, G1, B1 = 0, 0, 0
+    R2, G2, B2 = 0, 0, 0
 
     if (Diff):
         B1 = (BlockHigh & 0x0000f8) >> 0
@@ -153,11 +153,11 @@ def __ETC1Tile(Block):
         B2 = int(__CastSByte(B1 >> 3) + (__CastSByte((BlockHigh & 0x000007) <<  5) >> 5))
         G2 = int(__CastSByte(G1 >> 3) + (__CastSByte((BlockHigh & 0x000700) >>  3) >> 5))
         R2 = int(__CastSByte(R1 >> 3) + (__CastSByte((BlockHigh & 0x070000) >> 11) >> 5))
-        
+
         B1 |= B1 >> 5
         G1 |= G1 >> 5
         R1 |= R1 >> 5
-        
+
         B2 = (B2 << 3) | (B2 >> 2)
         G2 = (G2 << 3) | (G2 >> 2)
         R2 = (R2 << 3) | (R2 >> 2)
@@ -180,17 +180,17 @@ def __ETC1Tile(Block):
 
     Table1 = (BlockHigh >> 29) & 7
     Table2 = (BlockHigh >> 26) & 7
-    
-    
+
+
     Output = [0 for x in range(4 * 4 * 4)]
-    
+
     if (Flip == False):
         for Y in range(4):
             for X in range(2):
-                
+
                 Color1 = __ETC1Pixel(R1, G1, B1, X + 0, Y, BlockLow, Table1)
                 Color2 = __ETC1Pixel(R2, G2, B2, X + 2, Y, BlockLow, Table2)
-                
+
                 Offset1 = (Y * 4 + X) * 4
 
                 Output[Offset1 + 0] = Color1[2]
@@ -219,7 +219,7 @@ def __ETC1Tile(Block):
                 Output[Offset2 + 0] = Color2[2]
                 Output[Offset2 + 1] = Color2[1]
                 Output[Offset2 + 2] = Color2[0]
-                
+
     return Output
 
 def __ETC1Pixel(R, G, B, X, Y, Block, Table):
@@ -314,7 +314,7 @@ def DecodeBuffer(Input, width, height, format, isETC1):
                         Output[OOffs + 1] = Input[IOffs]
                         Output[OOffs + 2] = Input[IOffs]
                         Output[OOffs + 3] = 0xff
-                        
+
                     #Convert to float for blender
                     Output[OOffs + 0] /= 255
                     Output[OOffs + 1] /= 255

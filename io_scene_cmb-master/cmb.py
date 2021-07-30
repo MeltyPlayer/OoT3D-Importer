@@ -1,6 +1,6 @@
 import sys, os
-from .utils import (align, readDataType, readString, readArray, readFloat, 
-                    readUInt32, readInt32, readUShort, 
+from .utils import (align, readDataType, readString, readArray, readFloat,
+                    readUInt32, readInt32, readUShort,
                     readShort, readByte, readUByte)
 from .cmbEnums import *
 
@@ -180,7 +180,7 @@ class Sepd(object):
         self.chunkSize = 0
         self.primSetCount = 1
         self.vertFlags = 1
-        
+
         self.meshCenter = [0.0, 0.0, 0.0]
         self.positionOffset = [0.0, 0.0, 0.0]
         self.Mix = [-1.0, -1.0, -1.0]
@@ -476,10 +476,10 @@ class Material(object):
         else:
             self.TextureMappersUsed = readUInt32(f)
             self.TextureCoordsUsed = readUInt32(f)
-            
+
         self.TextureMappers = [TexMapper().read(f) for _ in range(3)]
         self.TextureCoords = [TexCoords().read(f) for _ in range(3)]
-        
+
         self.emissionColor = readArray(f, 4, DataTypes.UByte)
         self.ambientColor = readArray(f, 4, DataTypes.UByte)
         self.diffuseColor = readArray(f, 4, DataTypes.UByte)

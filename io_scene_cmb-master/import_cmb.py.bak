@@ -58,7 +58,7 @@ def LoadModel(filepath):
                 eb.parent = skeleton.edit_bones[bone.parentId]
                 eb.tail = eb.parent.head
             eb.tail[1] += 0.001# Blender will delete all zero-length bones
-        
+
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action='DESELECT')
 
@@ -77,7 +77,7 @@ def LoadModel(filepath):
                 image.pixels = DecodeBuffer(readArray(f, t.dataLength, DataTypes.UByte), t.width, t.height, t.imageFormat, t.isETC1)
             image.update()# Updates the display image
             image.pack(True)# Pack the image into the .blend file. True = pack as .png
-        
+
         # ################################################################
         # Add Materials
         # ################################################################
@@ -88,18 +88,18 @@ def LoadModel(filepath):
             mat = bpy.data.materials.new('{}_mat'.format(cmb.name))# Create new material
             mat.use_nodes = True# Use nodes
             materialNames.append(mat.name)
-            
+
             nodes = mat.node_tree.nodes
             links = mat.node_tree.links
             mat.node_tree.nodes.remove(nodes.get('Diffuse BSDF'))# Remove the default material blender creates
-            
+
             out = nodes.get("Material Output")# Output node
             sdr = nodes.new("ShaderNodeBsdfPrincipled")# Create new shader node to use
             texture = nodes.new("ShaderNodeTexImage")# Create new texture node
             texture.image = bpy.data.images.get(textureNames[m.TextureMappers[0].textureID])# Set the texture's image
             links.new(sdr.inputs[0], texture.outputs[0])# Link Image "Color" to shaders "Base Color"
             links.new(sdr.outputs[0], out.inputs[0])# Link shader output "BSDF" to material output "Surface"
-        
+
         # ################################################################
         # Build Meshes
         # ################################################################
@@ -126,7 +126,7 @@ def LoadModel(filepath):
             nmesh = bpy.data.meshes.new('VisID:{}'.format(mesh.ID))# ID is used for visibility animations
             nmesh.use_auto_smooth = True# Needed for custom split normals
             nmesh.materials.append(bpy.data.materials.get(materialNames[mesh.materialIndex]))# Add material to mesh
-            
+
             obj = bpy.data.objects.new(nmesh.name, nmesh)# Create new mesh object
             obj.parent = skl_obj# Set parent skeleton
 
@@ -162,7 +162,7 @@ def LoadModel(filepath):
 
                 if(shape.primitiveSets[0].skinningMode != SkinningMode.Smooth):
                     bmv.co = transformPosition(bmv.co, boneTransforms[bindices[i]])
-                
+
                 # Normal
                 if hasNrm:
                     f.seek(cmb.vatrOfs + vb.normal.startOfs + shape.normal.start + 3 * getDataTypeSize(shape.normal.dataType) * i)
@@ -180,7 +180,7 @@ def LoadModel(filepath):
                 if hasUv0:
                     f.seek(cmb.vatrOfs + vb.uv0.startOfs + shape.uv0.start + 2 * getDataTypeSize(shape.uv0.dataType) * i)
                     v.uv0 = [e * shape.uv0.scale for e in readArray(f, 2, shape.uv0.dataType)]
-                
+
                 # UV1
                 if hasUv1:
                     f.seek(cmb.vatrOfs + vb.uv1.startOfs + shape.uv1.start + 2 * getDataTypeSize(shape.uv1.dataType) * i)
@@ -190,7 +190,7 @@ def LoadModel(filepath):
                 if hasUv2:
                     f.seek(cmb.vatrOfs + vb.uv2.startOfs + shape.uv2.start + 2 * getDataTypeSize(shape.uv2.dataType) * i)
                     v.uv2 = [e * shape.uv2.scale for e in readArray(f, 2, shape.uv2.dataType)]
-                
+
                 # Bone Weights
                 if hasBw:
                     # For smooth meshes
@@ -201,9 +201,9 @@ def LoadModel(filepath):
                 else:
                     # For single-bind meshes
                     bmv[weight_layer][bindices[i]] = 1.0
-                
+
                 vertices.append(v)
-            
+
             bm.verts.ensure_lookup_table()# Must always be called after adding/removing vertices or accessing them by index
             bm.verts.index_update()# Assign an index value to each vertex
 
@@ -214,7 +214,7 @@ def LoadModel(filepath):
                     face.smooth = True
                 except:# face already exists
                     continue
-            
+
             uv_layer0 = bm.loops.layers.uv.new() if (hasUv0) else None
             uv_layer1 = bm.loops.layers.uv.new() if (hasUv1) else None
             uv_layer2 = bm.loops.layers.uv.new() if (hasUv2) else None
@@ -248,7 +248,7 @@ def LoadModel(filepath):
                 clnors = array.array('f', [0.0] * (len(nmesh.loops) * 3))
                 nmesh.loops.foreach_get("normal", clnors)
                 nmesh.normals_split_custom_set(tuple(zip(*(iter(clnors),) * 3)))
-                
+
             # Link object in scene
             bpy.context.scene.objects.link(obj)
 

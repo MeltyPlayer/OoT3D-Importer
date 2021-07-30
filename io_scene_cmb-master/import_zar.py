@@ -1,4 +1,7 @@
-import sys, os, array, bpy, bmesh, operator, math, mathutils
+import sys, io, os, array, bpy, bmesh, operator, math, mathutils
+
+from .import_cmb import LoadModelFromStream
+from .zar import Zar
 
 #TODO: Clean up
 def load_zar( operator, context ):
@@ -18,4 +21,15 @@ def load_zar( operator, context ):
 
     for f in enumerate(operator.files):
         filePath = operator.directory + f[1].name
+
+        zar = Zar(filePath)
+
+        cmbList = zar.getFiles("cmb")
+        assert len(cmbList) == 1, "Expected to find one cmb!"
+
+        cmb = cmbList[0]
+        cmbStream = io.BytesIO(cmb.bytes)
+
+        LoadModelFromStream(cmbStream)
+
         return {"FINISHED"}

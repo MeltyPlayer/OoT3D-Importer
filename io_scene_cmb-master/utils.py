@@ -51,14 +51,14 @@ def getDataTypeSize(dt):
     if(dt == DataTypes.Byte or dt == DataTypes.UByte): return 1
     elif(dt == DataTypes.Short or dt == DataTypes.UShort): return 2
     else: return 4
-        
+
 def readString(file, length = 0):
     if(length > 0): return file.read(length).decode("ASCII").replace("\x00", '')
     else: return ''.join(iter(lambda: file.read(1).decode('ascii'), '\x00' and ''))
     # The "and" is required or else python will loop forever if you hit the end of the file
 
 
-# Ported from OpenTK 
+# Ported from OpenTK
 # blender might have something but I'm too lazy to check
 def dot(left, right):
     return left[0] * right.x + left[1] * right.y + left[2] * right.z
@@ -86,7 +86,7 @@ def getWorldTransform(bones, i):
     T = bones[i].translation
     S = bones[i].scale
     R = bones[i].rotation
-    
+
     T = mathutils.Matrix.Translation(T).to_4x4().transposed()
     Sm = mathutils.Matrix.Translation((0, 0, 0)).to_4x4()
     Sm[0][0] = S[0]

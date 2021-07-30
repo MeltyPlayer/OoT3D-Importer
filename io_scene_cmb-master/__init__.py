@@ -21,13 +21,13 @@ from bpy_extras.io_utils import ImportHelper
 class ImportCmb(bpy.types.Operator, ImportHelper):
     bl_idname = "import.cmb"
     bl_label = "Import CMB"
-    
+
     filename_ext = ".cmb"
     filter_glob = StringProperty(default="*.cmb", options={'HIDDEN'})
     files = bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
     directory = bpy.props.StringProperty(subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'})
-    
-    
+
+
     def execute( self, context ):
         from .import_cmb import load_cmb
         return load_cmb(self, context)
@@ -36,13 +36,13 @@ class ImportCmb(bpy.types.Operator, ImportHelper):
 class ImportZar(bpy.types.Operator, ImportHelper):
     bl_idname = "import.zar"
     bl_label = "Import ZAR"
-    
+
     filename_ext = ".zar"
     filter_glob = StringProperty(default="*.zar", options={'HIDDEN'})
     files = bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
     directory = bpy.props.StringProperty(subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'})
-    
-    
+
+
     def execute( self, context ):
         from .import_zar import load_zar
         return load_zar(self, context)
@@ -53,7 +53,7 @@ class ImportZar(bpy.types.Operator, ImportHelper):
 # ################################################################
 
 def menu_func_import( self, context ):
-    self.layout.operator( ImportCmb.bl_idname, text="OoT3D (.zar)")
+    self.layout.operator( ImportZar.bl_idname, text="OoT3D (.zar)")
     self.layout.operator( ImportCmb.bl_idname, text="CtrModelBinary (.cmb)")
 
 def register():
@@ -63,7 +63,7 @@ def register():
     print("Registering CMB\n")
     bpy.utils.register_class(ImportCmb)
     bpy.types.INFO_MT_file_import.append(menu_func_import)
-    
+
 def unregister():
     print("Unregistering ZAR\n")
     bpy.utils.unregister_class(ImportZar)
@@ -72,6 +72,6 @@ def unregister():
     bpy.utils.unregister_class(ImportCmb)
 
     bpy.types.INFO_MT_file_import.remove(menu_func_import)
-    
+
 if __name__ == "__main__":
     register()

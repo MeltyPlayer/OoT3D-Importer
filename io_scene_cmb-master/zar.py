@@ -17,10 +17,13 @@ class Zar:
         self.header = Zar.ZarHeader(bytes)
         self.filetypesSection = Zar.FiletypesSection(bytes, self.header)
 
-        fileIndex = 0
         self.files = []
         for filetype in self.filetypesSection.filetypes:
             for fileInFiletypeIndex in range(filetype.fileCount):
+                fileIndexOffset = filetype.fileListOffset + 4 * fileInFiletypeIndex
+                fileIndexBytes = bytes[fileIndexOffset:fileIndexOffset+4]
+                (fileIndex,) = struct.unpack("I", fileIndexBytes)
+
                 fileMetadataOffset = self.header.fileMetadataOffset + 8 * fileIndex
                 fileMetadataBytes = bytes[fileMetadataOffset:fileMetadataOffset+8]
                 (
@@ -30,15 +33,21 @@ class Zar:
 
                 filename = readNullTerminatedString(bytes, filenameOffset)
 
-                fileOffsetOffset = filetype.fileListOffset + 4 * fileInFiletypeIndex
+                fileOffsetOffset = self.header.dataOffset + 4 * fileIndex
                 fileOffsetBytes = bytes[fileOffsetOffset:fileOffsetOffset+4]
                 (fileOffset,) = struct.unpack("I", fileOffsetBytes)
+
                 fileBytes = bytes[fileOffset:fileOffset+fileSize]
 
-                self.files.append(Zar.File(filename, fileBytes))
+                file = Zar.File(filename, fileBytes)
 
-                fileIndex += 1
+                self.files.append(file)
+                filetype.files.append(file)
 
+    def getFiles(self, typeName):
+        for filetype in self.filetypesSection.filetypes:
+            if typeName == filetype.typeName:
+                return filetype.files
 
     def __str__(self):
         return '\n\n\n'.join([
@@ -100,6 +109,7 @@ class Zar:
             ) = struct.unpack("III", filetypeBytes)
 
             self.typeName = readNullTerminatedString(bytes, self.typeNameOffset)
+            self.files = []
 
         def __str__(self):
             return '\n'.join([
@@ -115,13 +125,13 @@ class Zar:
     class File:
         def __init__(self, filename, fileBytes):
             self.filename = filename
-            self.fileBytes = fileBytes
+            self.bytes = fileBytes
 
         def __str__(self):
             return '\n'.join([
                 "===",
                 "File \"" + self.filename + "\":",
-                str(len(self.fileBytes)) + " bytes",
+                str(len(self.bytes)) + " bytes",
                 "===",
             ])
 
