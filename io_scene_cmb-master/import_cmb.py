@@ -55,7 +55,8 @@ def LoadModelFromStream(f):
                 startOff = f.tell()
                 break
 
-
+    f.seek(startOff)
+    assert readString(f, 3) == "cmb", "Expected magic text to be cmb!"
     f.seek(startOff)
 
     cmb = readCmb(f, startOff)

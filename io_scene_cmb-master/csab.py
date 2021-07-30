@@ -121,7 +121,7 @@ animation_data = Struct(
 
     "num_anod_chunks" / Int32ul, #amosOT=3, amosMM=5
     "num_bones" / Int32ul, #amosOT=amosMM=5
-    
+
     #if per_bone_indices[2]=3, that means bone 2 uses anod chunk 3
     "per_bone_indices" / Aligned(4, Int16sl[this.num_bones]), #amosOT=(-1,-1,0,1,2), amosMM=(0,1,2,3,4)
 
@@ -136,11 +136,11 @@ csab_animation = Struct(
 csab_file = Struct(
     "magic" / Const(b"csab"),
     "file_size" / Int32ul,
-    
+
     "unknown08" / Int32ul,
     "game" / Switch(this.unknown08, {3:Computed('Ocarina3D'), 5:Computed('Majora3D')}, default=Error), #TODO add to wiki
     "unknown0C" / Const(0, Int32ul), #XXX 0? amosOT=amosMM=0
-    
+
     #something for MM3D
     "junkMM3D" / If(this.game == "Majora3D", Const(b'\0\0 B\0\0 B\0\0 B')),
 
@@ -169,5 +169,3 @@ if __name__ == '__main__':
         PATH = "/media/whatagotchi/EXTRA/OoT_work/romfs-extracted/actor/zelda_am/Anim/am_jump.csab"
         PATH = "/media/whatagotchi/EXTRA/OoT_work/romfs_extracted_mm3D/actors/zelda2_am.gar.lzs/am_jump.csab"
     parse_and_print(PATH)
-
-    

@@ -1,7 +1,9 @@
-import sys, io, os, array, bpy, bmesh, operator, math, mathutils
+import sys, io, os, os.path, array, bpy, bmesh, operator, math, mathutils
 
 from .common import CLIP_START, CLIP_END, GLOBAL_SCALE
+from .csab import csab_file
 from .import_cmb import LoadModelFromStream
+from .import_csab import CsabImporter
 from .zar import Zar
 
 #TODO: Clean up
@@ -25,12 +27,29 @@ def load_zar( operator, context ):
 
         zar = Zar(filePath)
 
+        # Parse model
         cmbList = zar.getFiles("cmb")
-        assert len(cmbList) == 1, "Expected to find one cmb!"
 
-        cmb = cmbList[0]
-        cmbStream = io.BytesIO(cmb.bytes)
+        cmbBytesList = []
+        if cmbList and len(cmbList) > 0:
+            for cmb in cmbList:
+                cmbBytesList.append(cmb.bytes)
+        else:
+            realFilePath = filePath.replace(".zar", "_0_info.zsi")
+            if os.path.isfile(realFilePath):
+                with open(realFilePath, "rb") as f:
+                    cmbBytesList.append(f.read())
 
-        LoadModelFromStream(cmbStream)
+        for cmbBytes in cmbBytesList:
+            cmbStream = io.BytesIO(cmbBytes)
+            LoadModelFromStream(cmbStream)
+
+        # Parse animations
+        csabList = zar.getFiles("csab")
+
+        if csabList:
+            for csab in csabList:
+                parsedCsab = csab_file.parse(csab.bytes)
+                CsabImporter(parsedCsab)
 
         return {"FINISHED"}

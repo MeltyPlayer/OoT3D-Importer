@@ -11,8 +11,8 @@ def readNullTerminatedString(bytes, offset):
 # Class representing a Zar archive.
 class Zar:
     def __init__(self, filePath):
-        fileHandle = open(filePath, "rb")
-        bytes = fileHandle.read()
+        with open(filePath, "rb") as f:
+            bytes = f.read()
 
         self.header = Zar.ZarHeader(bytes)
         self.filetypesSection = Zar.FiletypesSection(bytes, self.header)
@@ -137,5 +137,6 @@ class Zar:
 
 
 if __name__ == "__main__":
-    zar = Zar("R:/Documents/PythonWorkspace/OoT3D-Importer/romfs/actor/zelda_sa.zar")
+    #zar = Zar("R:/Documents/PythonWorkspace/OoT3D-Importer/romfs/actor/zelda_sa.zar")
+    zar = Zar("R:/Documents/PythonWorkspace/OoT3D-Importer/romfs/scene/kakariko_home3.zar")
     print(zar)
