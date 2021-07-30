@@ -51,8 +51,13 @@ def load_zar( operator, context ):
         csabList = zar.getFiles("csab")
 
         if csabList:
-            for csab in csabList:
+            for i, csab in enumerate(csabList):
                 parsedCsab = csab_file.parse(csab.bytes)
-                CsabImporter(parsedCsab)
+                CsabImporter(
+                    parsedCsab,
+                    csab.filename
+                ).import_anims(
+                    i == 0 # Clear armatures
+                )
 
         return {"FINISHED"}

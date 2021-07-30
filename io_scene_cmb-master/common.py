@@ -18,7 +18,9 @@ CLIP_END = 1000
 
 axis_correction_matrix = axis_conversion(
         from_forward = 'Z',
-        from_up = 'Y'
+        from_up = 'X',
+        to_forward = "-X",
+        to_up = "Z"
 ).to_4x4()
 
 class ValueHolder:
