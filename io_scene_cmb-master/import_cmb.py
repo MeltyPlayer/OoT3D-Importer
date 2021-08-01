@@ -83,10 +83,14 @@ def LoadModelFromStream(f):
         eb.head = bone.translation# Set head position
         eb.matrix = boneTransforms[bone.id].transposed()# Apply matrix
 
+        # TODO: Tail was aimed at parent, not direction of limb
+        eb.tail = transformPosition([1.0, 0.0, 0.0], boneTransforms[bone.id])
+
         # Assign parent bone
         if bone.parentId != -1:
             eb.parent = skeleton.edit_bones[bone.parentId]
-            eb.tail = eb.parent.head
+            #eb.tail = eb.parent.head
+
         eb.tail[1] += 0.001# Blender will delete all zero-length bones
 
     bpy.ops.object.mode_set(mode='OBJECT')
@@ -288,7 +292,7 @@ def LoadModelFromStream(f):
     f.close()
 
     #TODO: Add an option
-    Rotate = True
+    Rotate = False
     if Rotate:
         bpy.ops.object.select_all(action='DESELECT')
 

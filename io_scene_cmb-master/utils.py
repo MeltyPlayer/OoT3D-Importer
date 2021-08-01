@@ -83,10 +83,15 @@ def transformNormal(norm, mat):
 
 # Taken from https://gitlab.com/Worldblender/io_scene_numdlb (Thank you!)
 def getWorldTransform(bones, i):
-    T = bones[i].translation
-    S = bones[i].scale
-    R = bones[i].rotation
+    M = fromTsr(bones[i].translation, bones[i].scale, bones[i].rotation)
 
+    if (bones[i].parentId != -1): P = getWorldTransform(bones, bones[i].parentId)
+    else: P = mathutils.Matrix.Translation((0, 0, 0)).to_4x4()
+
+    return M * P
+
+# Taken from https://gitlab.com/Worldblender/io_scene_numdlb (Thank you!)
+def fromTsr(T, S, R):
     T = mathutils.Matrix.Translation(T).to_4x4().transposed()
     Sm = mathutils.Matrix.Translation((0, 0, 0)).to_4x4()
     Sm[0][0] = S[0]
@@ -95,14 +100,11 @@ def getWorldTransform(bones, i):
     S = Sm
     R = fromEulerAngles(R).to_matrix().to_4x4().transposed()
 
-    if (bones[i].parentId != -1): P = getWorldTransform(bones, bones[i].parentId)
-    else: P = mathutils.Matrix.Translation((0, 0, 0)).to_4x4()
     M = mathutils.Matrix.Translation((0, 0, 0)).to_4x4()
 
     M = M * S
     M = M * R
     M = M * T
-    M = M * P
 
     return M
 

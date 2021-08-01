@@ -20,6 +20,7 @@ from .common import (
         ValueHolder, #TODO maybe not
         get_bone_ids_in_order,
 )
+from .interpolated_bone_transforms import InterpolatedBoneTransforms
 
 
 LOG_ANIMATION = False
@@ -38,8 +39,9 @@ class CsabImporter:
     csab_parsed: a parsed csab animation object (i.e. the object returned from csab.parse())
     '''
 
-    def __init__(self, csab_parsed, anim_name="anim"):
+    def __init__(self, csab_parsed, cmb, anim_name="anim"):
         self.csab_parsed = csab_parsed
+        self.cmb = cmb
 
         # self.blender = ValueHolder()
         # self.blender.anim_name = anim_name
@@ -63,13 +65,36 @@ class CsabImporter:
             else:
                 raise NoActiveArmatureError("You must first select the armature to be animated.")
 
+        armobj = armature_object
+        arm_bones = len(armobj.pose.bones)
+
+        #Prepare armature for animation, prepare animation & action
+        # TODO: This should not occur if animation_data is defined
+        if clear_armature:
+            armobj.animation_data_clear()
+            armobj.animation_data_create()
+
+        #Get bone ids and parents, also map bone ids to Blender PoseBones. TODO someday use custom property for bone_ids
+        bones_parents_ids = []
+        boneid_posebone_map = dict()
+        for posebone in armobj.pose.bones:
+            bone_id = int(posebone.name.replace("bone_", ""))
+            boneid_posebone_map[bone_id] = posebone
+
+            parent_bone = posebone.parent
+            parent_bone_id = -1 if parent_bone is None else int(parent_bone.name.replace("bone_", ""))
+            bones_parents_ids.append((bone_id, parent_bone_id))
+
+        # Backs up pose.
+        backupTransforms = []
+        for bone_id in get_bone_ids_in_order(bones_parents_ids):
+            blender_posebone = boneid_posebone_map[bone_id]
+            backupTransforms.append(blender_posebone.matrix.copy())
+
+        # Processes animations
         for anim_id, csab_anim in enumerate(x.data for x in csab_parsed.animations):
             num_anims = len(csab_parsed.animations)
             if num_anims > 1:
-
-                print("WARNING: This CSAB file contains {num_anims} animations. For now, only the first animation will be loaded.".format(num_anims=num_anims))
-
-                #TODO use this when multiple anims are supported
                 # digits = len(str(num_anims-1))
                 # anim_full_name = "{anim_name}_{num:0{digits}}".format(anim_name=self.anim_name, num=anim_id, digits=digits)
 
@@ -79,45 +104,33 @@ class CsabImporter:
                 anim_full_name = self.anim_name
 
             #Check that the number of bones in the animation matches the number of bones in the armature
-            armobj = armature_object
             anim_bones = csab_anim.num_bones
-            arm_bones = len(armobj.pose.bones)
             if anim_bones != arm_bones:
                 print("WARNING: Bone number mismatch. Animation contains {anim_bones} bones, but the selected armature contains {arm_bones} bones.".format(anim_bones=anim_bones, arm_bones=arm_bones))
                 self.bone_mismatch = True
 
-            #Prepare armature for animation, prepare animation & action
-            # TODO: This should not occur if animation_data is defined
-            if clear_armature:
-                armobj.animation_data_clear()
-                armobj.animation_data_create()
-            armobj.animation_data.action = bpy.data.actions.new(anim_full_name)
-            action = armobj.animation_data.action
-
-
-            #Get bone ids and parents, also map bone ids to Blender PoseBones. TODO someday use custom property for bone_ids
-            bones_parents_ids = []
-            boneid_posebone_map = dict()
-
-            for posebone in armobj.pose.bones:
-                bone_id = int(posebone.name.replace("bone_", ""))
-                boneid_posebone_map[bone_id] = posebone
-
-                parent_bone = posebone.parent
-                parent_bone_id = -1 if parent_bone is None else int(parent_bone.name.replace("bone_", ""))
-                bones_parents_ids.append((bone_id, parent_bone_id))
-
-            #Process bones in reverse order from child to parent
-            for bone_id in reversed(get_bone_ids_in_order(bones_parents_ids)):
+            # Checks that the bones match up
+            for bone_id in get_bone_ids_in_order(bones_parents_ids):
                 try:
                     anod_id = csab_anim.per_bone_indices[bone_id]
                 except IndexError:
                     #raise BoneMismatchError("Attempted to animate nonexistent bone. Are you sure this is the right model for this animation?")
                     print("WARNING: Attempted to animate nonexistent bone {bone_id}. Are you sure this is the right model for this animation? Skipping this bone.".format(bone_id=bone_id))
-                    continue
+                    self.bone_mismatch = True
+
+            # Creates new action (i.e. animation)
+            armobj.animation_data.action = bpy.data.actions.new(anim_full_name)
+            action = armobj.animation_data.action
+
+            # Gathers up animations from each bone
+            animationLength = csab_anim.last_frame + 1
+            boneTransforms = InterpolatedBoneTransforms(anim_bones, animationLength)
+            for bone_id in get_bone_ids_in_order(bones_parents_ids):
+                anod_id = csab_anim.per_bone_indices[bone_id]
                 if anod_id < 0:
                     continue #this bone is not animated
                 anod = csab_anim.anod_chunks[anod_id].data
+
                 blender_posebone = boneid_posebone_map[bone_id]
 
                 parent_matrix = (blender_posebone.parent.matrix.copy() if blender_posebone.parent is not None else Matrix.Identity(4))
@@ -125,94 +138,132 @@ class CsabImporter:
                 local_position = local_matrix.to_translation()
                 local_rotation = local_matrix.to_euler('XYZ')
 
-                ### TRANSLATION: populate FCurves with local position pose values ###
-                pos_all_keyframes = set() #position keyframes numbers for all axes
-                #pos_all_keyframes = set(range(animation.last_frame + 1)) #TODO: Remember how a translation during a rotation should theoretically need a translation keyframe on every frame of rotation? This just makes every frame a keyframe. Test this with the Link's fairy revive animation, see if it makes any difference (i.e. smoother animation)
+                blender_posebone.rotation_mode = 'XYZ'
+
+                #For each position axis:
                 pos_fcurves = []
-
-                #For each axis:
                 for axis_idx, axis in enumerate((anod.posx, anod.posy, anod.posz)):
-
-                    #create new fcurve
-                    data_path = 'pose.bones["{0}"].location'.format(blender_posebone.name)
+                    data_path = 'pose.bones["{0}"].local_position'.format(blender_posebone.name)
                     fcurve = action.fcurves.new(data_path=data_path, index=axis_idx)
                     pos_fcurves.append(fcurve)
 
                     if axis is None:
-                        #Animation is not defined for this axis, so make a flat fcurve from local bone translation
-                        keyframe_value = local_position[axis_idx]
-                        fcurve.keyframe_points.insert(0, keyframe_value)
-                        pos_all_keyframes.add(0)
+                        keyframeValue = local_position[axis_idx]
+                        fcurve.keyframe_points.insert(0, keyframeValue)
                     else:
-                        #Animation is defined for this axis
-                        #Populate the fcurve and add all frame #s to pos_all_keyframes
-                        #Note: In theory, you should have a position keyframe for every frame the bone is simultaneously translating and rotating (we don't). In practice, though, it doesn't seem to make a visible difference. TODO: there's a test above we should do on Link's fairy revive animation
                         for frame in axis.data.frames:
-                            keyframe_value = frame.value * GLOBAL_SCALE
-                            fcurve.keyframe_points.insert(frame.num, keyframe_value) #XXX consider LINEAR interpolation
-                            pos_all_keyframes.add(frame.num)
+                            keyframeValue = frame.value
+                            fcurve.keyframe_points.insert(frame.num, keyframeValue)
 
-                ### ROTATION: populate FCurves with local rotation pose values ###
-                rot_all_keyframes = set() #rotation keyframes numbers for all axes
-                blender_posebone.rotation_mode = 'XYZ'
                 rot_fcurves = []
-
-                #For each axis:
                 for axis_idx, axis in enumerate((anod.rotx, anod.roty, anod.rotz)):
-
-                    #create new fcurve
                     data_path = 'pose.bones["{0}"].rotation_euler'.format(blender_posebone.name)
                     fcurve = action.fcurves.new(data_path=data_path, index=axis_idx)
                     rot_fcurves.append(fcurve)
 
+                    adj = False #axis_idx == 0
                     if axis is None:
                         #Animation is not defined for this axis, so make a flat fcurve from local bone rotation
-                        keyframe_value = local_rotation[axis_idx]
-                        fcurve.keyframe_points.insert(0, keyframe_value)
-                        rot_all_keyframes.add(0)
+                        keyframeValue = local_rotation[axis_idx]
+
+                        if adj:
+                            keyframeValue = -keyframeValue
+
+                        print(keyframeValue)
+                        fcurve.keyframe_points.insert(0, keyframeValue) #XXX consider LINEAR interpolation
                     else:
                         #Animation is defined for this axis
                         #Populate the fcurve and add all frame #s to rot_all_keyframes
                         for frame in axis.data.frames:
-                            keyframe_value = frame.value
-                            fcurve.keyframe_points.insert(frame.num, keyframe_value) #XXX consider LINEAR interpolation
-                            rot_all_keyframes.add(frame.num)
+                            keyframeValue = frame.value
 
-                ### TRANSLATION & ROTATION: get evaluated FCurve values of local animation poses ###
-                pos_local_anims = [] #(x,y,z) local pose for each frame in pos_all_keyframes + rot_all_keyframes
-                rot_local_anims = [] #(x,y,z) local pose for each frame in pos_all_keyframes + rot_all_keyframes
-                for frame in sorted(pos_all_keyframes | rot_all_keyframes):
-                    pos_keyframe_values = tuple(pos_fcurves[axis_idx].evaluate(frame) for axis_idx in range(3))
-                    pos_local_anims.append(pos_keyframe_values)
-                    rot_keyframe_values = tuple(rot_fcurves[axis_idx].evaluate(frame) for axis_idx in range(3))
-                    rot_local_anims.append(rot_keyframe_values)
+                            if adj:
+                                keyframeValue = -keyframeValue
 
-                ### TRANSLATION & ROTATION: pose the Blender bone and create keyframes ###
-                for frame, pos_local_pose, rot_local_pose in zip(sorted(pos_all_keyframes | rot_all_keyframes), pos_local_anims, rot_local_anims):
-                    scene.frame_set(frame)
+                            print(keyframeValue)
+                            fcurve.keyframe_points.insert(frame.num, keyframeValue) #XXX consider LINEAR interpolation
 
-                    local_anim_pos = Matrix.Translation(pos_local_pose)
-                    local_anim_rot = Euler(rot_local_pose, 'XYZ').to_matrix().to_4x4()
+                # TODO: Animations seem right, but it looks like we still need to manually pose?
 
-                    local_anim_pose_matrix = local_anim_pos * local_anim_rot
-                    anim_pose_matrix = parent_matrix * local_anim_pose_matrix
-                    blender_posebone.matrix = anim_pose_matrix
-                    scene.update()
+                for frame_index in range(animationLength):
+                    translation = tuple(pos_fcurves[axis_idx].evaluate(frame_index) for axis_idx in range(3))
 
-                    if frame in rot_all_keyframes:
-                        blender_posebone.keyframe_insert('rotation_euler')
-                    if frame in pos_all_keyframes:
-                        blender_posebone.keyframe_insert('location')
+                    # TODO: Get this from the bone?
+                    scale = (1, 1, 1)
+
+                    radians = tuple(rot_fcurves[axis_idx].evaluate(frame_index) for axis_idx in range(3))
+
+                    for i in range(3):
+                        assert translation[i] is not None, "Undefined translation!" + str(translation)
+                        assert scale[i] is not None, "Undefined scale!" + str(scale)
+                        assert radians[i] is not None, "Undefined radians!" + str(radians)
+
+                    boneChannels = boneTransforms.getBoneChannels(bone_id)
+                    boneChannels.translationChannel.setKeyframe(frame_index, translation)
+                    boneChannels.scaleChannel.setKeyframe(frame_index, scale)
+                    boneChannels.radiansChannel.setKeyframe(frame_index, radians)
+
+            return
+
+            # Poses model w/ calculated transforms and saves all keyframes
+            # TODO: Only do these if keyframes are defined!
+            for frame_index in range(animationLength):
+                # Positions all bones as expected for each frame.
+                for bone_id in get_bone_ids_in_order(bones_parents_ids):
+                    anod_id = csab_anim.per_bone_indices[bone_id]
+                    if anod_id < 0:
+                        continue #this bone is not animated
+                    #blender_posebone = boneid_posebone_map[bone_id]
+
+                    #parent_matrix = (blender_posebone.parent.matrix.copy() if blender_posebone.parent is not None else Matrix.Identity(4))
+                    #local_anim_pose_matrix = boneTransforms.getTransformKeyframe(bone_id, frame_index)
+
+                    #anim_pose_matrix = local_anim_pose_matrix * parent_matrix
+                    #blender_posebone.matrix = anim_pose_matrix
+
+                    blender_posebone.matrix = getWorldTransformCsab(boneid_posebone_map, boneChannels, bone_id, frame_index).transposed()
+
+                scene.update()
+
+                # Saves all bones as a frame
+                scene.frame_set(frame_index)
+                for bone_id in get_bone_ids_in_order(bones_parents_ids):
+                    blender_posebone = boneid_posebone_map[bone_id]
+
+                    # TODO: Only do these if keyframes are defined!
+                    blender_posebone.keyframe_insert('rotation_euler')
+                    #blender_posebone.keyframe_insert('rotation_quaternion')
+                    blender_posebone.keyframe_insert('location')
 
             #TODO does not account for multiple animations
             scene.frame_start = 0
             scene.frame_end = csab_anim.last_frame
             scene.frame_set(0)
+            scene.update()
 
-            break #XXX temporary, ensures only first anim is imported
+        # Done w/ animations here!
+
+        # Reapplies original poses
+#        for bone_id in get_bone_ids_in_order(bones_parents_ids):
+#            blender_posebone = boneid_posebone_map[bone_id]
+#            blender_posebone.matrix = backupTransforms[bone_id]
+
+#        scene.update()
 
         if self.bone_mismatch:
             raise BoneMismatchError("There is a mismatch between the number of bones in the animation and the armature. Are you sure this is the right model for this animation? (See the Blender console for more details.)")
+
+def getWorldTransformCsab(boneid_posebone_map, bone_channels, bone_id, frame_index):
+    M = bone_channels.getTransformKeyframe(bone_id, frame_index)
+
+    posebone = boneid_posebone_map[bone_id]
+    parent_posebone = posebone.parent
+    parent_posebone_id = int(parent_posebone.name.replace("bone_", ""))
+
+    if (parent_posebone_id != -1): P = getWorldTransformCsab(bones, parent_posebone_id)
+    else: P = mathutils.Matrix.Translation((0, 0, 0)).to_4x4()
+
+    return M * P
 
 def read(filepath):
     print("Reading CSAB file '{0}' [{1}] ...".format(bpy.path.basename(filepath), filepath))
