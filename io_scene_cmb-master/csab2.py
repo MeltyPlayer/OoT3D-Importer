@@ -1,321 +1,317 @@
-import ArrayBufferSlice from "../ArrayBufferSlice";
-import { Version, calcModelMtx, Bone } from "./cmb";
-import { assert, readString, align } from "../util";
-import AnimationController from "../AnimationController";
-import { mat4 } from "gl-matrix";
-import { getPointHermite } from "../Spline";
+# Shamelessly based on https://github.com/magcius/noclip.website/blob/e7da91f0d8fcef6ea58659e991fd6408b940194e/src/oot3d/csab.ts
 
-// CSAB (CTR Skeletal Animation Binary)
+import io
+from .io_utils import (readDataType, readString, readArray, readFloat,
+                    readInt16, readUInt16, readUInt32, readInt32, readUShort,
+                    readShort, readByte, readUByte)
+from .common import GLOBAL_SCALE
 
-const enum AnimationTrackType {
-    LINEAR = 0x01,
-    HERMITE = 0x02,
-    INTEGER = 0x03,
-};
+ANIMATION_TRACK_TYPE_LINEAR = 0x01
+ANIMATION_TRACK_TYPE_HERMITE = 0x02
+ANIMATION_TRACK_TYPE_INTEGER = 0x03
 
-interface AnimationKeyframeLinear {
-    time: number;
-    value: number;
-}
+class AnimationKeyframeLinear:
+    def __init__(self):
+        self.time = -1
+        self.value = -1
 
-interface AnimationKeyframeHermite {
-    time: number;
-    value: number;
-    tangentIn: number;
-    tangentOut: number;
-}
+class AnimationKeyframeHermite:
+    def __init__(self):
+        self.time = -1
+        self.value = -1
+        self.tangentIn = -1
+        self.tangentOut = -1
 
-interface AnimationTrackLinear {
-    type: AnimationTrackType.LINEAR;
-    frames: AnimationKeyframeLinear[];
-}
+class AnimationTrackLinear:
+    def __init__(self):
+        self.type = ANIMATION_TRACK_TYPE_LINEAR
+        self.frames = []
 
-interface AnimationTrackHermite {
-    type: AnimationTrackType.HERMITE;
-    frames: AnimationKeyframeHermite[];
-}
+class AnimationTrackHermite:
+    def __init__(self):
+        self.type = ANIMATION_TRACK_TYPE_HERMITE
+        self.frames = []
 
-interface AnimationTrackInteger {
-    type: AnimationTrackType.INTEGER;
-    frames: AnimationKeyframeLinear[];
-}
+class AnimationTrackInteger:
+    def __init__(self):
+        self.type = ANIMATION_TRACK_TYPE_INTEGER
+        self.frames = []
 
-type AnimationTrack = AnimationTrackLinear | AnimationTrackHermite | AnimationTrackInteger;
 
-const enum LoopMode {
-    ONCE, REPEAT,
-}
+LOOP_MODE_ONCE = 1
+LOOP_MODE_REPEAT = 2
 
-interface AnimationNode {
-    boneIndex: number;
-    scaleX: AnimationTrack | null;
-    rotationX: AnimationTrack | null;
-    translationX: AnimationTrack | null;
-    scaleY: AnimationTrack | null;
-    rotationY: AnimationTrack | null;
-    translationY: AnimationTrack | null;
-    scaleZ: AnimationTrack | null;
-    rotationZ: AnimationTrack | null;
-    translationZ: AnimationTrack | null;
-}
+class AnimationNode:
+    def __init__(self):
+        self.boneIndex = -1
+        self.scaleX = None
+        self.rotationX = None
+        self.translationX = None
+        self.scaleY = None
+        self.rotationY = None
+        self.translationY = None
+        self.scaleZ = None
+        self.rotationZ = None
+        self.translationZ = None
 
-interface AnimationBase {
-    duration: number;
-    loopMode: LoopMode;
-}
+class CSAB:
+    def __init__(self):
+        self.duration = -1
+        self.loopMode = 0
+        self.animationNodes = []
+        self.boneToAnimationTable = []
 
-export interface CSAB extends AnimationBase {
-    duration: number;
-    loopMode: LoopMode;
-    animationNodes: AnimationNode[];
-    boneToAnimationTable: Int16Array;
-}
+def parseTrack(bytes):
+    buffer = io.BytesIO(bytes)
 
-function parseTrack(version: Version, buffer: ArrayBufferSlice): AnimationTrack {
-    const view = buffer.createDataView();
+    type = 0
+    numKeyframes = -1
+    unk1 = -1
+    timeEnd = -1
 
-    let type: AnimationTrackType;
-    let numKeyframes: number;
-    let unk1: number;
-    let timeEnd: number;
+    #if (version === Version.Ocarina) {
+    type = readUInt32(buffer)
+    numKeyframes = readUInt32(buffer)
+    unk1 = readUInt32(buffer)
+    timeEnd = readUInt32(buffer)
+    #} else if (version === Version.Majora || version === Version.LuigisMansion) {
+    #    throw "xxx";
+    #}
 
-    if (version === Version.Ocarina) {
-        type = view.getUint32(0x00, true);
-        numKeyframes = view.getUint32(0x04, true);
-        unk1 = view.getUint32(0x08, true);
-        timeEnd = view.getUint32(0x0C, true);
-    } else if (version === Version.Majora || version === Version.LuigisMansion) {
-        throw "xxx";
-    }
+    keyframeTableIdx = 0x10
+    buffer.seek(keyframeTableIdx)
 
-    let keyframeTableIdx: number = 0x10;
+    if type == ANIMATION_TRACK_TYPE_LINEAR:
+        frames = []
+        for i in range(numKeyframes):
+            frame = AnimationKeyframeLinear()
 
-    if (type === AnimationTrackType.LINEAR) {
-        const frames: AnimationKeyframeLinear[] = [];
-        for (let i = 0; i < numKeyframes; i++) {
-            const time = view.getUint32(keyframeTableIdx + 0x00, true);
-            const value = view.getFloat32(keyframeTableIdx + 0x04, true);
-            keyframeTableIdx += 0x08;
-            frames.push({ time, value });
-        }
-        return { type, frames };
-    } else if (type === AnimationTrackType.HERMITE) {
-        const frames: AnimationKeyframeHermite[] = [];
-        for (let i = 0; i < numKeyframes; i++) {
-            const time = view.getUint32(keyframeTableIdx + 0x00, true);
-            const value = view.getFloat32(keyframeTableIdx + 0x04, true);
-            const tangentIn = view.getFloat32(keyframeTableIdx + 0x08, true);
-            const tangentOut = view.getFloat32(keyframeTableIdx + 0x0C, true);
-            keyframeTableIdx += 0x10;
-            frames.push({ time, value, tangentIn, tangentOut });
-        }
-        return { type, frames };
-    } else if (type === AnimationTrackType.INTEGER) {
-        const frames: AnimationKeyframeLinear[] = [];
-        for (let i = 0; i < numKeyframes; i++) {
-            const time = view.getUint32(keyframeTableIdx + 0x00, true);
-            const value = view.getFloat32(keyframeTableIdx + 0x04, true);
-            keyframeTableIdx += 0x08;
-            frames.push({ time, value });
-        }
-        return { type, frames };
-    } else {
-        throw "whoops";
-    }
-}
+            frame.time = readUInt32(buffer)
+            frame.value = readFloat(buffer)
 
-// "Animation Node"?
-function parseAnod(version: Version, buffer: ArrayBufferSlice): AnimationNode {
-    const view = buffer.createDataView();
+            frames.append(frame)
 
-    assert(readString(buffer, 0x00, 0x04, false) === 'anod');
-    const boneIndex = view.getUint32(0x04, true);
+        track = AnimationTrackLinear()
+        track.frames = frames
+        return track
 
-    const translationXOffs = view.getUint16(0x08, true);
-    const translationYOffs = view.getUint16(0x0A, true);
-    const translationZOffs = view.getUint16(0x0C, true);
-    const rotationXOffs = view.getUint16(0x0E, true);
-    const rotationYOffs = view.getUint16(0x10, true);
-    const rotationZOffs = view.getUint16(0x12, true);
-    const scaleXOffs = view.getUint16(0x14, true);
-    const scaleYOffs = view.getUint16(0x16, true);
-    const scaleZOffs = view.getUint16(0x18, true);
-    assert(view.getUint16(0x1A, true) === 0x00);
+    elif type == ANIMATION_TRACK_TYPE_HERMITE:
+        frames = []
+        for i in range(numKeyframes):
+            frame = AnimationKeyframeHermite()
 
-    const translationX = translationXOffs !== 0 ? parseTrack(version, buffer.slice(translationXOffs)) : null;
-    const translationY = translationYOffs !== 0 ? parseTrack(version, buffer.slice(translationYOffs)) : null;
-    const translationZ = translationZOffs !== 0 ? parseTrack(version, buffer.slice(translationZOffs)) : null;
-    const rotationX = rotationXOffs !== 0 ? parseTrack(version, buffer.slice(rotationXOffs)) : null;
-    const rotationY = rotationYOffs !== 0 ? parseTrack(version, buffer.slice(rotationYOffs)) : null;
-    const rotationZ = rotationZOffs !== 0 ? parseTrack(version, buffer.slice(rotationZOffs)) : null;
-    const scaleX = scaleXOffs !== 0 ? parseTrack(version, buffer.slice(scaleXOffs)) : null;
-    const scaleY = scaleYOffs !== 0 ? parseTrack(version, buffer.slice(scaleYOffs)) : null;
-    const scaleZ = scaleZOffs !== 0 ? parseTrack(version, buffer.slice(scaleZOffs)) : null;
+            frame.time = readUInt32(buffer)
+            frame.value = readFloat(buffer)
+            frame.tangentIn = readFloat(buffer)
+            frame.tangentOut = readFloat(buffer)
 
-    return { boneIndex, translationX, translationY, translationZ, rotationX, rotationY, rotationZ, scaleX, scaleY, scaleZ };
-}
+            frames.append(frame)
 
-export function parse(version: Version, buffer: ArrayBufferSlice): CSAB {
-    const view = buffer.createDataView();
+        track = AnimationTrackHermite()
+        track.frames = frames
+        return track
 
-    assert(readString(buffer, 0x00, 0x04, false) === 'csab');
-    const size = view.getUint32(0x04, true);
+    elif type == ANIMATION_TRACK_TYPE_INTEGER:
+        frames = []
+        for i in range(numKeyframes):
+            frame = AnimationKeyframeLinear()
 
-    const subversion = view.getUint32(0x08, true);
-    assert(subversion === 0x03);
-    assert(view.getUint32(0x0C, true) === 0x00);
+            frame.time = readUInt32(buffer)
+            frame.value = readFloat(buffer)
 
-    assert(view.getUint32(0x10, true) === 0x01); // num animations?
-    assert(view.getUint32(0x14, true) === 0x18); // location?
+            frames.append(frame)
 
-    assert(view.getUint32(0x18, true) === 0x00);
-    assert(view.getUint32(0x1C, true) === 0x00);
-    assert(view.getUint32(0x20, true) === 0x00);
-    assert(view.getUint32(0x24, true) === 0x00);
+        track = AnimationTrackInteger()
+        track.frames = frames
+        return track
 
-    const duration = view.getUint32(0x28, true);
-    // loop mode?
-    // assert(view.getUint32(0x2C, true) === 0x00);
+    else:
+        assert False, "Unsupported animation track type!"
 
-    const loopMode = LoopMode.REPEAT;
-    const anodCount = view.getUint32(0x30, true);
-    const boneCount = view.getUint32(0x34, true);
-    assert(anodCount <= boneCount);
+# "Animation Node"?
+def parseAnod(bytes):
+    buffer = io.BytesIO(bytes)
+    assert readString(buffer, 4) == 'anod', "Not reading an anod!"
 
-    // This appears to be an inverse of the bone index in each array, probably for fast binding?
-    const boneToAnimationTable = new Int16Array(boneCount);
-    let boneTableIdx = 0x38;
-    for (let i = 0; i < boneCount; i++) {
-        boneToAnimationTable[i] = view.getInt16(boneTableIdx + 0x00, true);
-        boneTableIdx += 0x02;
-    }
+    boneIndex = readUInt32(buffer)
 
-    // TODO(jstpierre): This doesn't seem like a Grezzo thing to do.
-    let anodTableIdx = align(boneTableIdx, 0x04);
+    translationXOffs = readUInt16(buffer)
+    translationYOffs = readUInt16(buffer)
+    translationZOffs = readUInt16(buffer)
+    rotationXOffs = readUInt16(buffer)
+    rotationYOffs = readUInt16(buffer)
+    rotationZOffs = readUInt16(buffer)
+    scaleXOffs = readUInt16(buffer)
+    scaleYOffs = readUInt16(buffer)
+    scaleZOffs = readUInt16(buffer)
+    assert readUInt16(buffer) == 0x00, "Anod did not end with 00!"
 
-    const animationNodes: AnimationNode[] = [];
-    for (let i = 0; i < anodCount; i++) {
-        const offs = view.getUint32(anodTableIdx + 0x00, true);
-        animationNodes.push(parseAnod(version, buffer.slice(0x18 + offs)));
-        anodTableIdx += 0x04;
-    }
+    animationNode = AnimationNode()
+    animationNode.boneIndex = boneIndex
+    if translationXOffs != 0:
+        animationNode.translationX = parseTrack(bytes[translationXOffs:])
+    if translationYOffs != 0:
+        animationNode.translationY = parseTrack(bytes[translationYOffs:])
+    if translationZOffs != 0:
+        animationNode.translationZ = parseTrack(bytes[translationZOffs:])
+    if rotationXOffs != 0:
+        animationNode.rotationX = parseTrack(bytes[rotationXOffs:])
+    if rotationYOffs != 0:
+        animationNode.rotationY = parseTrack(bytes[rotationYOffs:])
+    if rotationZOffs != 0:
+        animationNode.rotationZ = parseTrack(bytes[rotationZOffs:])
+    if scaleXOffs != 0:
+        animationNode.scaleX = parseTrack(bytes[scaleXOffs:])
+    if scaleYOffs != 0:
+        animationNode.scaleY = parseTrack(bytes[scaleYOffs:])
+    if scaleZOffs != 0:
+        animationNode.scaleZ = parseTrack(bytes[scaleZOffs:])
 
-    return { duration, loopMode, boneToAnimationTable, animationNodes };
-}
+    return animationNode
 
-function getAnimFrame(anim: AnimationBase, frame: number): number {
-    // Be careful of floating point precision.
-    const lastFrame = anim.duration;
-    if (anim.loopMode === LoopMode.ONCE) {
-        if (frame > lastFrame)
-            frame = lastFrame;
-        return frame;
-    } else if (anim.loopMode === LoopMode.REPEAT) {
-        while (frame > lastFrame)
+def align(n, multiple):
+    mask = multiple - 1
+    return (n + mask) & ~mask
+
+def parse(bytes):
+    buffer = io.BytesIO(bytes)
+
+    assert readString(buffer, 4) == 'csab', "Not a csab!!"
+    size = readUInt32(buffer)
+
+    subversion = readUInt32(buffer)
+    assert subversion == 0x03
+    assert readUInt32(buffer) == 0x00
+
+    assert readUInt32(buffer) == 0x01 # num animations?
+    assert readUInt32(buffer) == 0x18 # location?
+
+    assert readUInt32(buffer) == 0x00
+    assert readUInt32(buffer) == 0x00
+    assert readUInt32(buffer) == 0x00
+    assert readUInt32(buffer) == 0x00
+
+    duration = readUInt32(buffer)
+    # loop mode?
+    assert readUInt32(buffer) == 0x00
+
+    loopMode = LOOP_MODE_REPEAT
+    anodCount = readUInt32(buffer)
+    boneCount = readUInt32(buffer)
+    assert anodCount <= boneCount
+
+    # This appears to be an inverse of the bone index in each array, probably for fast binding?
+    boneToAnimationTable = [None] * boneCount
+    boneTableIdx = 0x38;
+    buffer.seek(boneTableIdx)
+    for i in range(boneCount):
+        boneToAnimationTable[i] = readInt16(buffer)
+        boneTableIdx += 2
+
+    # TODO(jstpierre): This doesn't seem like a Grezzo thing to do.
+    anodTableIdx = align(boneTableIdx, 0x04);
+    buffer.seek(anodTableIdx)
+    animationNodes = []
+    for i in range(anodCount):
+        offs = readUInt32(buffer)
+        animationNodes.append(parseAnod(bytes[0x18 + offs:]))
+
+    csab = CSAB()
+    csab.duration = duration
+    csab.loopMode = loopMode
+    csab.boneToAnimationTable = boneToAnimationTable
+    csab.animationNodes = animationNodes
+    return csab
+
+def getAnimFrame(anim, frame):
+    # Be careful of floating point precision.
+    lastFrame = anim.duration;
+    if anim.loopMode == LOOP_MODE_ONCE:
+        if frame > lastFrame:
+            frame = lastFrame
+        return frame
+    elif anim.loopMode == LOOP_MODE_REPEAT:
+        while frame > lastFrame:
             frame -= lastFrame;
-        return frame;
-    } else {
-        throw "whoops";
-    }
-}
+        return frame
+    else:
+        assert False, "Unexpected loop mode type!"
 
-function lerp(k0: AnimationKeyframeLinear, k1: AnimationKeyframeLinear, t: number) {
-    return k0.value + (k1.value - k0.value) * t;
-}
+def lerp_keyframe_linear(keyframe_linear_0, keyframe_linear_1, t):
+    return keyframe_linear_0 + (keyframe_linear_1 - keyframe_linear_0) * t
 
-function sampleAnimationTrackLinear(track: AnimationTrackLinear, frame: number): number {
-    const frames = track.frames;
+def sampleAnimationTrackLinear(track, frame):
+    frames = track.frames
 
-    // Find the first frame.
-    const idx1 = frames.findIndex((key) => (frame < key.time));
-    if (idx1 === 0)
-        return frames[0].value;
-    if (idx1 < 0)
-        return frames[frames.length - 1].value;
-    const idx0 = idx1 - 1;
+    # Find the first frame.
+    idx1 = None
+    try:
+        idx1 = next(i for i, key in enumerate(frames) if frame < key.time)
+    except:
+        idx1 = -1
+    if idx1 == 0:
+        return frames[0].value
+    if idx1 < 0:
+        return frames[len(frames) - 1].value
+    idx0 = idx1 - 1
 
-    const k0 = frames[idx0];
-    const k1 = frames[idx1];
+    k0 = frames[idx0]
+    k1 = frames[idx1]
 
-    const t = (frame - k0.time) / (k1.time - k0.time);
-    return lerp(k0, k1, t);
-}
+    t = (frame - k0.time) / (k1.time - k0.time)
+    return lerp_keyframe_linear(k0, k1, t)
 
-function hermiteInterpolate(k0: AnimationKeyframeHermite, k1: AnimationKeyframeHermite, t: number): number {
-    const length = k1.time - k0.time;
-    const p0 = k0.value;
-    const p1 = k1.value;
-    const s0 = k0.tangentOut * length;
-    const s1 = k1.tangentIn * length;
-    return getPointHermite(p0, p1, s0, s1, t);
-}
+def hermiteInterpolate(keyframe_hermite_0, keyframe_hermite_1, t):
+    length = keyframe_hermite_1.time - keyframe_hermite_0.time
+    p0 = keyframe_hermite_0.value
+    p1 = keyframe_hermite_1.value
+    s0 = keyframe_hermite_0.tangentOut * length
+    s1 = keyframe_hermite_1.tangentIn * length
+    return getPointHermite(p0, p1, s0, s1, t)
 
-function sampleAnimationTrackHermite(track: AnimationTrackHermite, frame: number) {
-    const frames = track.frames;
+def getPointHermite(p0, p1, s0, s1, t):
+    cf0 = (p0 *  2) + (p1 * -2) + (s0 *  1) +  (s1 *  1)
+    cf1 = (p0 * -3) + (p1 *  3) + (s0 * -2) +  (s1 * -1)
+    cf2 = (p0 *  0) + (p1 *  0) + (s0 *  1) +  (s1 *  0)
+    cf3 = (p0 *  1) + (p1 *  0) + (s0 *  0) +  (s1 *  0)
+    return getPointCubic(cf0, cf1, cf2, cf3, t)
 
-    // Find the first frame.
-    const idx1 = frames.findIndex((key) => (frame < key.time));
-    if (idx1 === 0)
-        return frames[0].value;
-    if (idx1 < 0)
-        return frames[frames.length - 1].value;
-    const idx0 = idx1 - 1;
+def getPointCubic(cf0, cf1, cf2, cf3, t):
+    return (((cf0 * t + cf1) * t + cf2) * t + cf3)
 
-    const k0 = frames[idx0];
-    const k1 = frames[idx1];
 
-    // HACK(jstpierre): Nintendo sometimes uses weird "reset" tangents
-    // which aren't supposed to be visible. They are visible for us because
-    // "frame" can have a non-zero fractional component. In this case, pick
-    // a value completely.
-    if ((k1.time - k0.time) === 1)
-        return k0.value;
+def sampleAnimationTrackHermite(track, frame):
+    frames = track.frames
 
-    const t = (frame - k0.time) / (k1.time - k0.time);
-    return hermiteInterpolate(k0, k1, t);
-}
+    # Find the first frame.
+    idx1 = None
+    try:
+        idx1 = next(i for i, key in enumerate(frames) if frame < key.time)
+    except:
+        idx1 = -1
+    if idx1 == 0:
+        return frames[0].value
+    if idx1 < 0:
+        return frames[len(frames) - 1].value
+    idx0 = idx1 - 1
 
-function sampleAnimationTrack(track: AnimationTrack, frame: number): number {
-    if (track.type === AnimationTrackType.LINEAR)
-        return sampleAnimationTrackLinear(track, frame);
-    else if (track.type === AnimationTrackType.HERMITE)
-        return sampleAnimationTrackHermite(track, frame);
-    else
-        throw "whoops";
-}
+    k0 = frames[idx0]
+    k1 = frames[idx1]
 
-export function calcBoneMatrix(dst: mat4, animationController: AnimationController, csab: CSAB | null, bone: Bone): void {
-    let node: AnimationNode | null = null;
-    if (csab !== null) {
-        const animIndex = csab.boneToAnimationTable[bone.boneId];
-        if (animIndex >= 0)
-            node = csab.animationNodes[animIndex];
-    }
+    # HACK(jstpierre): Nintendo sometimes uses weird "reset" tangents
+    # which aren't supposed to be visible. They are visible for us because
+    # "frame" can have a non-zero fractional component. In this case, pick
+    # a value completely.
+    if (k1.time - k0.time) == 1:
+        return k0.value
 
-    let scaleX = bone.scaleX;
-    let scaleY = bone.scaleY;
-    let scaleZ = bone.scaleZ;
-    let rotationX = bone.rotationX;
-    let rotationY = bone.rotationY;
-    let rotationZ = bone.rotationZ;
-    let translationX = bone.translationX;
-    let translationY = bone.translationY;
-    let translationZ = bone.translationZ;
+    t = (frame - k0.time) / (k1.time - k0.time)
+    return hermiteInterpolate(k0, k1, t)
 
-    if (node !== null) {
-        const frame = animationController.getTimeInFrames();
-        const animFrame = getAnimFrame(csab, frame);
-
-        if (node.scaleX !== null) scaleX = sampleAnimationTrack(node.scaleX, animFrame);
-        if (node.scaleY !== null) scaleY = sampleAnimationTrack(node.scaleY, animFrame);
-        if (node.scaleZ !== null) scaleZ = sampleAnimationTrack(node.scaleZ, animFrame);
-        if (node.rotationX !== null) rotationX = sampleAnimationTrack(node.rotationX, animFrame);
-        if (node.rotationY !== null) rotationY = sampleAnimationTrack(node.rotationY, animFrame);
-        if (node.rotationZ !== null) rotationZ = sampleAnimationTrack(node.rotationZ, animFrame);
-        if (node.translationX !== null) translationX = sampleAnimationTrack(node.translationX, animFrame);
-        if (node.translationY !== null) translationY = sampleAnimationTrack(node.translationY, animFrame);
-        if (node.translationZ !== null) translationZ = sampleAnimationTrack(node.translationZ, animFrame);
-    }
-
-    calcModelMtx(dst, scaleX, scaleY, scaleZ, rotationX, rotationY, rotationZ, translationX, translationY, translationZ);
-}
+def sampleAnimationTrack(track, frame):
+    if track.type == ANIMATION_TRACK_TYPE_LINEAR:
+        return sampleAnimationTrackLinear(track, frame)
+    elif track.type == ANIMATION_TRACK_TYPE_HERMITE:
+        return sampleAnimationTrackHermite(track, frame)
+    else:
+        assert False, "Unsupported animation track type to sample!"

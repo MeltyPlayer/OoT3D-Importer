@@ -1,5 +1,5 @@
 import sys, os
-from .utils import (align, readDataType, readString, readArray, readFloat,
+from .io_utils import (align, readDataType, readString, readArray, readFloat,
                     readUInt32, readInt32, readUShort,
                     readShort, readByte, readUByte)
 from .cmbEnums import *
@@ -555,6 +555,9 @@ class Bone(object):
         self.translation = {0,0,0}
         self.unk0 = 0
 
+        self.parent = None
+        self.children = []
+
     def read(self,f):
         # Because only 12 bits are used, 4095 is the max bone count. (In versions > OoT3D anyway)
         self.id = readUShort(f)
@@ -583,7 +586,13 @@ class Skl(object):
         self.chunkSize = readUInt32(f)
         self.boneCount = readUInt32(f)
         self.unkFlags  = readUInt32(f)# Only value found is "2", possibly "IsTranslateAnimationEnabled" flag (I can't find a change in-game)
+
         self.bones = [Bone().read(f) for _ in range(self.boneCount)]
+        for bone in self.bones:
+            if bone.parentId != -1:
+                parent = bone.parent = self.bones[bone.parentId]
+                parent.children.append(bone)
+
         return self
 
 class BoundingBox(object):

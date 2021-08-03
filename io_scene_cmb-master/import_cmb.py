@@ -3,8 +3,8 @@ import sys, os, array, bpy, bmesh, operator, math, mathutils
 from .cmb import readCmb
 from .ctrTexture import DecodeBuffer
 from .cmbEnums import SkinningMode, DataTypes
-from .utils import (readArray, readDataType, readUInt32, readString, getFlag, getDataTypeSize,
-                    getWorldTransform, transformPosition, transformNormal)
+from .utils import (getWorldTransformCmb, transformPosition, transformNormal)
+from .io_utils import (readArray, readDataType, readUInt32, readString, getFlag, getDataTypeSize)
 from .common import CLIP_START, CLIP_END, GLOBAL_SCALE
 
 #TODO: Clean up
@@ -68,15 +68,16 @@ def LoadModelFromStream(f):
     # ################################################################
 
     skeleton = bpy.data.armatures.new(cmb.name)# Create new armature
-    skl_obj = bpy.data.objects.new(skeleton.name, skeleton)# Create new armature object
+    skl_obj = cmb.editSkeleton = bpy.data.objects.new(skeleton.name, skeleton)# Create new armature object
     skl_obj.show_x_ray = True
     bpy.context.scene.objects.link(skl_obj)# Link armature to the scene
     bpy.context.scene.objects.active = skl_obj# Select the skeleton for editing
     bpy.ops.object.mode_set(mode='EDIT')# Set to edit mode
 
+    print("round 1")
     for bone in cmb.skeleton:
         # Save the matrices so we don't have to recalculate them for single-binded meshes later
-        boneTransforms[bone.id] = getWorldTransform(cmb.skeleton, bone.id)
+        boneTransforms[bone.id] = getWorldTransformCmb(cmb.skeleton, bone.id)
 
         eb = skeleton.edit_bones.new('bone_{}'.format(bone.id))
         eb.use_inherit_scale = eb.use_inherit_rotation = eb.use_deform = True# Inherit rotation/scale and use deform
@@ -89,9 +90,17 @@ def LoadModelFromStream(f):
         # Assign parent bone
         if bone.parentId != -1:
             eb.parent = skeleton.edit_bones[bone.parentId]
-            #eb.tail = eb.parent.head
 
-        eb.tail[1] += 0.001# Blender will delete all zero-length bones
+            parent = cmb.skeleton[bone.parentId]
+            if parent is not None and len(parent.children) == 1:
+                eb.parent.tail = eb.head
+
+        #eb.tail[1] += 0.001# Blender will delete all zero-length bones
+
+        translation = eb.head.copy()
+
+        print("bone: " + str(bone.id))
+        print("  translation: " + str(bone.translation) + " / " + str(translation))
 
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
@@ -300,6 +309,8 @@ def LoadModelFromStream(f):
 
         bpy.ops.transform.rotate(value=math.radians(90), constraint_axis=(True, False, False))
         bpy.ops.object.select_all(action='DESELECT')
+
+    return cmb
 
 class Vertex(object):
     def __init__(self):

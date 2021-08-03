@@ -5,6 +5,7 @@ from .csab import csab_file
 from .import_cmb import LoadModelFromStream
 from .import_csab import CsabImporter
 from .zar import Zar
+from .csab2 import parse
 
 #TODO: Clean up
 def load_zar( operator, context ):
@@ -30,10 +31,10 @@ def load_zar( operator, context ):
         # Parse model
         cmbList = zar.getFiles("cmb")
 
-        cmbBytesList = []
+        cmbBytes = None
         if cmbList and len(cmbList) > 0:
-            for cmb in cmbList:
-                cmbBytesList.append(cmb.bytes)
+            assert len(cmbList) == 1, "Expected a single cmb model!"
+            cmbBytes = cmbList[0].bytes
         else:
             # TODO: Is this robust enough?
             # If no models exist, this might be a scene? Scene models are in a
@@ -41,21 +42,23 @@ def load_zar( operator, context ):
             realFilePath = filePath.replace(".zar", "_0_info.zsi")
             if os.path.isfile(realFilePath):
                 with open(realFilePath, "rb") as f:
-                    cmbBytesList.append(f.read())
+                    cmbBytes = f.read()
 
-        for cmbBytes in cmbBytesList:
-            cmbStream = io.BytesIO(cmbBytes)
-            LoadModelFromStream(cmbStream)
+        cmbStream = io.BytesIO(cmbBytes)
+        cmb = LoadModelFromStream(cmbStream)
+
+        assert cmb is not None, "No CMB was read from the file!"
 
         # Parse animations
         csabList = zar.getFiles("csab")
 
         if csabList:
-            for i, csab in enumerate(csabList):
-                parsedCsab = csab_file.parse(csab.bytes)
+            for i, csabBytes in enumerate(csabList):
+                csab = parse(csabBytes.bytes)
                 CsabImporter(
-                    parsedCsab,
-                    csab.filename
+                    csab,
+                    cmb,
+                    csabBytes.filename,
                 ).import_anims(
                     i == 0 # Clear armatures
                 )

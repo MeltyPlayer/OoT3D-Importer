@@ -1,62 +1,9 @@
 import struct
 import math
 import mathutils
-from .cmbEnums import DataTypes
 
-def getFlag(value, index, increment):
-    index += increment
-    return ((value >> index) & 1) != 0
-
-def align(file, size = 4):
-    while(file.tell() % size): file.seek(file.tell() + 1)
-
-def readUByte(file):
-	return struct.unpack("B", file.read(1))[0]
-
-def readByte(file):
-	return struct.unpack("b", file.read(1))[0]
-
-def readBytes(file, count):
-    return [readUByte(file) for _ in range(count)]
-
-def readUShort(file):
-	return struct.unpack("<H", file.read(2))[0]
-
-def readShort(file):
-	return struct.unpack("<h", file.read(2))[0]
-
-def readUInt32(file):
-	return struct.unpack("<I", file.read(4))[0]
-
-def readInt32(file):
-	return struct.unpack("<i", file.read(4))[0]
-
-def readFloat(file):
-    return struct.unpack("<f", file.read(4))[0]
-
-# Note: Default data type is float
-def readArray(file, elements, datatype = 0):
-    return [readDataType(file, datatype) for _ in range(elements)]
-
-def readDataType(file, dt):
-    if  (dt == DataTypes.Byte):   return readByte(file)
-    elif(dt == DataTypes.UByte):  return readUByte(file)
-    elif(dt == DataTypes.Short):  return readShort(file)
-    elif(dt == DataTypes.UShort): return readUShort(file)
-    elif(dt == DataTypes.Int):    return readInt32(file)
-    elif(dt == DataTypes.UInt):   return readUInt32(file)
-    else:                         return readFloat(file)
-
-def getDataTypeSize(dt):
-    if(dt == DataTypes.Byte or dt == DataTypes.UByte): return 1
-    elif(dt == DataTypes.Short or dt == DataTypes.UShort): return 2
-    else: return 4
-
-def readString(file, length = 0):
-    if(length > 0): return file.read(length).decode("ASCII").replace("\x00", '')
-    else: return ''.join(iter(lambda: file.read(1).decode('ascii'), '\x00' and ''))
-    # The "and" is required or else python will loop forever if you hit the end of the file
-
+from .common import GLOBAL_SCALE
+from .csab2 import getAnimFrame, sampleAnimationTrack
 
 # Ported from OpenTK
 # blender might have something but I'm too lazy to check
@@ -81,24 +28,117 @@ def transformNormal(norm, mat):
     invMat = mat.inverted()
     return transformNormalInverse(norm, invMat)
 
+
 # Taken from https://gitlab.com/Worldblender/io_scene_numdlb (Thank you!)
-def getWorldTransform(bones, i):
+def getWorldTransformCmb(bones, i, withParent = True):
     M = fromTsr(bones[i].translation, bones[i].scale, bones[i].rotation)
 
-    if (bones[i].parentId != -1): P = getWorldTransform(bones, bones[i].parentId)
+    if not withParent:
+        return M
+
+    if (bones[i].parentId != -1): P = getWorldTransformCmb(bones, bones[i].parentId)
     else: P = mathutils.Matrix.Translation((0, 0, 0)).to_4x4()
 
     return M * P
 
-# Taken from https://gitlab.com/Worldblender/io_scene_numdlb (Thank you!)
-def fromTsr(T, S, R):
-    T = mathutils.Matrix.Translation(T).to_4x4().transposed()
-    Sm = mathutils.Matrix.Translation((0, 0, 0)).to_4x4()
-    Sm[0][0] = S[0]
-    Sm[1][1] = S[1]
-    Sm[2][2] = S[2]
-    S = Sm
-    R = fromEulerAngles(R).to_matrix().to_4x4().transposed()
+def getWorldTransformCsab(csab, cmbBones, i, frameIndex, withParent = True):
+    cmbBone = cmbBones[i]
+    M = calcBoneMatrixCsab(csab, cmbBone, frameIndex)
+
+    if not withParent:
+        return M
+
+    if (cmbBone.parentId != -1): P = getWorldTransformCsab(csab, cmbBones, cmbBone.parentId, frameIndex)
+    else: P = mathutils.Matrix.Translation((0, 0, 0)).to_4x4()
+
+    return M * P
+
+
+def getScaleCsab(csab, bone, frameIndex):
+    node = None
+    if csab is not None:
+        animIndex = csab.boneToAnimationTable[bone.id]
+        if animIndex >= 0:
+            node = csab.animationNodes[animIndex]
+
+    scaleX = bone.scale[0]
+    scaleY = bone.scale[1]
+    scaleZ = bone.scale[2]
+
+    if node is not None:
+        animFrame = getAnimFrame(csab, frameIndex)
+
+        if node.scaleX is not None:
+            scaleX = sampleAnimationTrack(node.scaleX, animFrame)
+        if node.scaleY is not None:
+            scaleY = sampleAnimationTrack(node.scaleY, animFrame)
+        if node.scaleZ is not None:
+            scaleZ = sampleAnimationTrack(node.scaleZ, animFrame)
+
+    return (scaleX, scaleY, scaleZ)
+
+def getRotationCsab(csab, bone, frameIndex):
+    node = None
+    if csab is not None:
+        animIndex = csab.boneToAnimationTable[bone.id]
+        if animIndex >= 0:
+            node = csab.animationNodes[animIndex]
+
+    rotationX = bone.rotation[0]
+    rotationY = bone.rotation[1]
+    rotationZ = bone.rotation[2]
+
+    if node is not None:
+        animFrame = getAnimFrame(csab, frameIndex)
+
+        if node.rotationX is not None:
+            rotationX += sampleAnimationTrack(node.rotationX, animFrame)
+        if node.rotationY is not None:
+            rotationY += sampleAnimationTrack(node.rotationY, animFrame)
+        if node.rotationZ is not None:
+            rotationZ += sampleAnimationTrack(node.rotationZ, animFrame)
+
+    return (rotationX, rotationY, rotationZ)
+
+def getTranslationCsab(csab, cmbBone, frameIndex):
+    node = None
+    if csab is not None:
+        animIndex = csab.boneToAnimationTable[cmbBone.id]
+        if animIndex >= 0:
+            node = csab.animationNodes[animIndex]
+
+    translationX = cmbBone.translation[0]
+    translationY = cmbBone.translation[1]
+    translationZ = cmbBone.translation[2]
+
+    if node is not None:
+        animFrame = getAnimFrame(csab, frameIndex)
+
+        if node.translationX is not None:
+            translationX = sampleAnimationTrack(node.translationX, animFrame) * GLOBAL_SCALE
+        if node.translationY is not None:
+            translationY = sampleAnimationTrack(node.translationY, animFrame) * GLOBAL_SCALE
+        if node.translationZ is not None:
+            translationZ = sampleAnimationTrack(node.translationZ, animFrame) * GLOBAL_SCALE
+
+    return (translationX, translationY, translationZ)
+
+def calcBoneMatrixCsab(csab, cmbBone, frameIndex):
+    translation = getTranslationCsab(csab, cmbBone, frameIndex)
+    scale = getScaleCsab(csab, cmbBone, frameIndex)
+    rotation = getRotationCsab(csab, cmbBone, frameIndex)
+
+    return fromTsr(translation, scale, rotation, False)
+
+
+def fromTsr(translationTriplet, scaleTriplet, radiansTriplet, autoFlipQuaternion = True):
+    T = mathutils.Matrix.Translation(translationTriplet).to_4x4().transposed()
+    S = mathutils.Matrix.Translation((0, 0, 0)).to_4x4()
+    S[0][0] = scaleTriplet[0]
+    S[1][1] = scaleTriplet[1]
+    S[2][2] = scaleTriplet[2]
+
+    R = fromEulerAngles(radiansTriplet, autoFlipQuaternion).to_matrix().to_4x4().transposed()
 
     M = mathutils.Matrix.Translation((0, 0, 0)).to_4x4()
 
@@ -116,10 +156,13 @@ def fromAxisAngle(axis, angle):
         axis[2] * math.sin(angle / 2),
     ))
 
-def fromEulerAngles(rot):
+def fromEulerAngles(rot, autoFlipQuaternion = True):
     x = fromAxisAngle((1,0,0), rot[0])
     y = fromAxisAngle((0,1,0), rot[1])
     z = fromAxisAngle((0,0,1), rot[2])
     q = z * y * x
-    if q.w < 0: q *= -1
+
+    if autoFlipQuaternion:
+        if q.w < 0: q *= -1
+
     return q
