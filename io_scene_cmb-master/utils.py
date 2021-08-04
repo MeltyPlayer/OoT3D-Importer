@@ -84,19 +84,19 @@ def getRotationCsab(csab, bone, frameIndex):
         if animIndex >= 0:
             node = csab.animationNodes[animIndex]
 
-    rotationX = bone.rotation[0]
-    rotationY = bone.rotation[1]
-    rotationZ = bone.rotation[2]
+    rotationX = 0
+    rotationY = 0
+    rotationZ = 0
 
     if node is not None:
         animFrame = getAnimFrame(csab, frameIndex)
 
         if node.rotationX is not None:
-            rotationX += sampleAnimationTrack(node.rotationX, animFrame)
+            rotationX = sampleAnimationTrack(node.rotationX, animFrame) - bone.rotation[0]
         if node.rotationY is not None:
-            rotationY += sampleAnimationTrack(node.rotationY, animFrame)
+            rotationY = sampleAnimationTrack(node.rotationY, animFrame) - bone.rotation[1]
         if node.rotationZ is not None:
-            rotationZ += sampleAnimationTrack(node.rotationZ, animFrame)
+            rotationZ = sampleAnimationTrack(node.rotationZ, animFrame) - bone.rotation[2]
 
     return (rotationX, rotationY, rotationZ)
 

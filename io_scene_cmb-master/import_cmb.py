@@ -93,7 +93,8 @@ def LoadModelFromStream(f):
 
             parent = cmb.skeleton[bone.parentId]
             if parent is not None and len(parent.children) == 1:
-                eb.parent.tail = eb.head
+                if bone.translationX >= 0 and bone.translationY == 0 and bone.translationZ == 0:
+                    eb.parent.tail = eb.head
 
         #eb.tail[1] += 0.001# Blender will delete all zero-length bones
 
@@ -301,7 +302,7 @@ def LoadModelFromStream(f):
     f.close()
 
     #TODO: Add an option
-    Rotate = False
+    Rotate = True
     if Rotate:
         bpy.ops.object.select_all(action='DESELECT')
 
