@@ -92,9 +92,7 @@ def LoadModelFromStream(f):
             eb.parent = skeleton.edit_bones[bone.parentId]
 
             parent = cmb.skeleton[bone.parentId]
-            if parent is not None and len(parent.children) == 1:
-                if bone.translationX >= 0 and bone.translationY == 0 and bone.translationZ == 0:
-                    eb.parent.tail = eb.head
+            # TODO: Cap parent bone length in a robust way.
 
         #eb.tail[1] += 0.001# Blender will delete all zero-length bones
 
