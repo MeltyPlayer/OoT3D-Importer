@@ -30,6 +30,7 @@ class AnimationTrackLinear:
 class AnimationTrackHermite:
     def __init__(self):
         self.type = ANIMATION_TRACK_TYPE_HERMITE
+        self.timeEnd: -1
         self.frames = []
 
 class AnimationTrackInteger:
@@ -73,7 +74,7 @@ def parseTrack(bytes):
     type = readUInt32(buffer)
     numKeyframes = readUInt32(buffer)
     unk1 = readUInt32(buffer)
-    timeEnd = readUInt32(buffer)
+    timeEnd = readUInt32(buffer) + 1
     #} else if (version === Version.Majora || version === Version.LuigisMansion) {
     #    throw "xxx";
     #}
@@ -109,6 +110,7 @@ def parseTrack(bytes):
 
         track = AnimationTrackHermite()
         track.frames = frames
+        track.timeEnd = timeEnd
         return track
 
     elif type == ANIMATION_TRACK_TYPE_INTEGER:
@@ -249,6 +251,7 @@ def sampleAnimationTrackLinear(track, frame):
         idx1 = next(i for i, key in enumerate(frames) if frame < key.time)
     except:
         idx1 = -1
+
     if idx1 == 0:
         return frames[0].value
     if idx1 < 0:
@@ -259,10 +262,9 @@ def sampleAnimationTrackLinear(track, frame):
     k1 = frames[idx1]
 
     t = (frame - k0.time) / (k1.time - k0.time)
-    return lerp_keyframe_linear(k0, k1, t)
+    return lerp_keyframe_linear(k0.value, k1.value, t)
 
-def hermiteInterpolate(keyframe_hermite_0, keyframe_hermite_1, t):
-    length = keyframe_hermite_1.time - keyframe_hermite_0.time
+def hermiteInterpolate(keyframe_hermite_0, keyframe_hermite_1, t, length):
     p0 = keyframe_hermite_0.value
     p1 = keyframe_hermite_1.value
     s0 = keyframe_hermite_0.tangentOut * length
@@ -289,24 +291,18 @@ def sampleAnimationTrackHermite(track, frame):
         idx1 = next(i for i, key in enumerate(frames) if frame < key.time)
     except:
         idx1 = -1
-    if idx1 == 0:
-        return frames[0].value
-    if idx1 < 0:
-        return frames[len(frames) - 1].value
-    idx0 = idx1 - 1
 
-    k0 = frames[idx0]
-    k1 = frames[idx1]
+    if idx1 <= 0:
+        k0 = frames[len(frames) - 1]
+        k1 = frames[0]
+    else:
+        idx0 = idx1 - 1
+        k0 = frames[idx0]
+        k1 = frames[idx1]
 
-    # HACK(jstpierre): Nintendo sometimes uses weird "reset" tangents
-    # which aren't supposed to be visible. They are visible for us because
-    # "frame" can have a non-zero fractional component. In this case, pick
-    # a value completely.
-    if (k1.time - k0.time) == 1:
-        return k0.value
-
-    t = (frame - k0.time) / (k1.time - k0.time)
-    return hermiteInterpolate(k0, k1, t)
+    length = k1.time - k0.time % track.timeEnd
+    t = (frame - k0.time) / length
+    return hermiteInterpolate(k0, k1, t, length)
 
 def sampleAnimationTrack(track, frame):
     if track.type == ANIMATION_TRACK_TYPE_LINEAR:
