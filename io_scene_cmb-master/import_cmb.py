@@ -80,12 +80,14 @@ def LoadModelFromStream(f):
         boneTransforms[bone.id] = getWorldTransformCmb(cmb.skeleton, bone.id)
 
         eb = skeleton.edit_bones.new('bone_{}'.format(bone.id))
+
         eb.use_inherit_scale = eb.use_inherit_rotation = eb.use_deform = True# Inherit rotation/scale and use deform
+
         eb.head = bone.translation# Set head position
         eb.matrix = boneTransforms[bone.id].transposed()# Apply matrix
 
         # TODO: Tail was aimed at parent, not direction of limb
-        eb.tail = transformPosition([1.0, 0.0, 0.0], boneTransforms[bone.id])
+        eb.tail = transformPosition([-1.0, 0.0, 0.0], boneTransforms[bone.id])
 
         # Assign parent bone
         if bone.parentId != -1:

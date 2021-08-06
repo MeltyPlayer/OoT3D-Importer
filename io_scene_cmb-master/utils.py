@@ -3,7 +3,7 @@ import math
 import mathutils
 
 from .common import GLOBAL_SCALE
-from .csab2 import getAnimFrame, sampleAnimationTrack
+from .csab2 import getAnimFrame, sampleAnimationTrack, sampleAnimationTrackRotation
 
 # Ported from OpenTK
 # blender might have something but I'm too lazy to check
@@ -92,13 +92,47 @@ def getRotationCsab(csab, bone, frameIndex):
         animFrame = getAnimFrame(csab, frameIndex)
 
         if node.rotationX is not None:
-            rotationX = sampleAnimationTrack(node.rotationX, animFrame) - bone.rotation[0]
+            rotationX = sampleAnimationTrackRotation(node.rotationX, animFrame) - bone.rotation[0]
         if node.rotationY is not None:
-            rotationY = sampleAnimationTrack(node.rotationY, animFrame) - bone.rotation[1]
+            rotationY = sampleAnimationTrackRotation(node.rotationY, animFrame) - bone.rotation[1]
         if node.rotationZ is not None:
-            rotationZ = sampleAnimationTrack(node.rotationZ, animFrame) - bone.rotation[2]
+            rotationZ = sampleAnimationTrackRotation(node.rotationZ, animFrame) - bone.rotation[2]
 
     return (rotationX, rotationY, rotationZ)
+
+
+def getQuaternionCsab(csab, bone, frameIndex):
+    node = None
+    if csab is not None:
+        animIndex = csab.boneToAnimationTable[bone.id]
+        if animIndex >= 0:
+            node = csab.animationNodes[animIndex]
+
+    if node is None:
+        return fromEulerAngles((0, 0, 0))
+
+    iq = fromEulerAngles(bone.rotation)
+    iq.invert()
+
+    rotationX = 0
+    rotationY = 0
+    rotationZ = 0
+
+    animFrame = getAnimFrame(csab, frameIndex)
+    if node.rotationX is not None:
+        rotationX = sampleAnimationTrackRotation(node.rotationX, animFrame)
+    if node.rotationY is not None:
+        rotationY = sampleAnimationTrackRotation(node.rotationY, animFrame)
+    if node.rotationZ is not None:
+        rotationZ = sampleAnimationTrackRotation(node.rotationZ, animFrame)
+    x = fromAxisAngle((1,0,0), rotationX)
+    y = fromAxisAngle((0,1,0), rotationY)
+    z = fromAxisAngle((0,0,1), rotationZ)
+    q = z * y * x
+
+    return iq * q
+    #return q * inverseQuaternion
+
 
 def getTranslationCsab(csab, cmbBone, frameIndex):
     node = None
@@ -107,19 +141,19 @@ def getTranslationCsab(csab, cmbBone, frameIndex):
         if animIndex >= 0:
             node = csab.animationNodes[animIndex]
 
-    translationX = cmbBone.translation[0]
-    translationY = cmbBone.translation[1]
-    translationZ = cmbBone.translation[2]
+    translationX = 0
+    translationY = 0
+    translationZ = 0
 
     if node is not None:
         animFrame = getAnimFrame(csab, frameIndex)
 
         if node.translationX is not None:
-            translationX = sampleAnimationTrack(node.translationX, animFrame) * GLOBAL_SCALE
+            translationX = sampleAnimationTrack(node.translationX, animFrame) * GLOBAL_SCALE - cmbBone.translation[0]
         if node.translationY is not None:
-            translationY = sampleAnimationTrack(node.translationY, animFrame) * GLOBAL_SCALE
+            translationY = sampleAnimationTrack(node.translationY, animFrame) * GLOBAL_SCALE - cmbBone.translation[1]
         if node.translationZ is not None:
-            translationZ = sampleAnimationTrack(node.translationZ, animFrame) * GLOBAL_SCALE
+            translationZ = sampleAnimationTrack(node.translationZ, animFrame) * GLOBAL_SCALE - cmbBone.translation[2]
 
     return (translationX, translationY, translationZ)
 

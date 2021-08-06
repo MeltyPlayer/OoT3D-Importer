@@ -19,7 +19,7 @@ from .common import (
         ValueHolder, #TODO maybe not
         get_bone_ids_in_order,
 )
-from .utils import getTranslationCsab, getRotationCsab
+from .utils import getTranslationCsab, getQuaternionCsab
 
 
 LOG_ANIMATION = False
@@ -116,7 +116,12 @@ class CsabImporter:
 
             print("bone: " + str(bone_id))
 
-            blender_posebone.rotation_mode = 'ZYX'
+            blender_posebone.rotation_mode = 'QUATERNION'
+
+            # TODO: Try using quaternions again:
+            # 1) Set up an invert first to counteract the existing rotation.
+            # 2) Try rotation all bones by a known amount to verify it works as expected.
+            # 3) Undo that, then rotate bones w/ animations. Seems like it might not be zyx--X seems to be first?
 
             #For each position axis:
             pos_fcurves = []
@@ -124,8 +129,8 @@ class CsabImporter:
             for i in range(3):
                 pos_data_path = 'pose.bones["{0}"].local_position'.format(blender_posebone.name)
                 pos_fcurves.append(action.fcurves.new(data_path=pos_data_path, index=i))
-
-                rot_data_path = 'pose.bones["{0}"].rotation_euler'.format(blender_posebone.name)
+            for i in range(4):
+                rot_data_path = 'pose.bones["{0}"].rotation_quaternion'.format(blender_posebone.name)
                 rot_fcurves.append(action.fcurves.new(data_path=rot_data_path, index=i))
 
             for i in range(animationLength):
@@ -133,13 +138,12 @@ class CsabImporter:
                 #cmb_bone.rotation[axis_idx]
 
                 translation = getTranslationCsab(self.csab_parsed, cmb_bone, i)
-                rotation = getRotationCsab(self.csab_parsed, cmb_bone, i)
-
-                print("  " + str(i) + ") rot: " + str(rotation))
+                quaternion = getQuaternionCsab(self.csab_parsed, cmb_bone, i)
 
                 for a in range(3):
                     pos_fcurves[a].keyframe_points.insert(i, translation[a]) #XXX consider LINEAR interpolation
-                    rot_fcurves[a].keyframe_points.insert(i, rotation[a]) #XXX consider LINEAR interpolation
+                for a in range(4):
+                    rot_fcurves[a].keyframe_points.insert(i, quaternion[a]) #XXX consider LINEAR interpolation
 
         #TODO does not account for multiple animations
         scene.frame_start = 0

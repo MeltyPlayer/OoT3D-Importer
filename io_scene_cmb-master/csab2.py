@@ -1,6 +1,6 @@
 # Shamelessly based on https://github.com/magcius/noclip.website/blob/e7da91f0d8fcef6ea58659e991fd6408b940194e/src/oot3d/csab.ts
 
-import io
+import io, math
 from .io_utils import (readDataType, readString, readArray, readFloat,
                     readInt16, readUInt16, readUInt32, readInt32, readUShort,
                     readShort, readByte, readUByte)
@@ -307,6 +307,42 @@ def sampleAnimationTrackHermite(track, frame):
 def sampleAnimationTrack(track, frame):
     if track.type == ANIMATION_TRACK_TYPE_LINEAR:
         return sampleAnimationTrackLinear(track, frame)
+    elif track.type == ANIMATION_TRACK_TYPE_HERMITE:
+        return sampleAnimationTrackHermite(track, frame)
+    else:
+        assert False, "Unsupported animation track type to sample!"
+
+# https://gist.github.com/shaunlebron/8832585
+def lerpAngle(v0, v1, t, maxAngle):
+    da = (v1 - v0) % maxAngle
+    dist = (2*da) % maxAngle - da
+    return v0 + dist * t
+
+def sampleAnimationTrackLinearRotation(track, frame):
+    frames = track.frames
+
+    # Find the first frame.
+    idx1 = None
+    try:
+        idx1 = next(i for i, key in enumerate(frames) if frame < key.time)
+    except:
+        idx1 = -1
+
+    if idx1 == 0:
+        return frames[0].value
+    if idx1 < 0:
+        return frames[len(frames) - 1].value
+    idx0 = idx1 - 1
+
+    k0 = frames[idx0]
+    k1 = frames[idx1]
+
+    t = (frame - k0.time) / (k1.time - k0.time)
+    return lerpAngle(k0.value, k1.value, t, math.tau)
+
+def sampleAnimationTrackRotation(track, frame):
+    if track.type == ANIMATION_TRACK_TYPE_LINEAR:
+        return sampleAnimationTrackLinearRotation(track, frame)
     elif track.type == ANIMATION_TRACK_TYPE_HERMITE:
         return sampleAnimationTrackHermite(track, frame)
     else:
