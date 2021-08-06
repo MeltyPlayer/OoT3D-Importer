@@ -44,8 +44,7 @@ def load_zar( operator, context ):
                 with open(realFilePath, "rb") as f:
                     cmbBytes = f.read()
 
-        cmbStream = io.BytesIO(cmbBytes)
-        cmb = LoadModelFromStream(cmbStream)
+        cmb = LoadModelFromStream(cmbBytes.toStream())
 
         assert cmb is not None, "No CMB was read from the file!"
 

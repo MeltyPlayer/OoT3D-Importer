@@ -1,6 +1,6 @@
 # Shamelessly based on https://github.com/magcius/noclip.website/blob/e7da91f0d8fcef6ea58659e991fd6408b940194e/src/oot3d/csab.ts
 
-import io, math
+import math
 from .io_utils import (readDataType, readString, readArray, readFloat,
                     readInt16, readUInt16, readUInt32, readInt32, readUShort,
                     readShort, readByte, readUByte)
@@ -63,7 +63,7 @@ class CSAB:
         self.boneToAnimationTable = []
 
 def parseTrack(bytes):
-    buffer = io.BytesIO(bytes)
+    buffer = bytes.toStream()
 
     type = 0
     numKeyframes = -1
@@ -132,7 +132,7 @@ def parseTrack(bytes):
 
 # "Animation Node"?
 def parseAnod(bytes):
-    buffer = io.BytesIO(bytes)
+    buffer = bytes.toStream()
     assert readString(buffer, 4) == 'anod', "Not reading an anod!"
 
     boneIndex = readUInt32(buffer)
@@ -151,23 +151,23 @@ def parseAnod(bytes):
     animationNode = AnimationNode()
     animationNode.boneIndex = boneIndex
     if translationXOffs != 0:
-        animationNode.translationX = parseTrack(bytes[translationXOffs:])
+        animationNode.translationX = parseTrack(bytes.slice(translationXOffs))
     if translationYOffs != 0:
-        animationNode.translationY = parseTrack(bytes[translationYOffs:])
+        animationNode.translationY = parseTrack(bytes.slice(translationYOffs))
     if translationZOffs != 0:
-        animationNode.translationZ = parseTrack(bytes[translationZOffs:])
+        animationNode.translationZ = parseTrack(bytes.slice(translationZOffs))
     if rotationXOffs != 0:
-        animationNode.rotationX = parseTrack(bytes[rotationXOffs:])
+        animationNode.rotationX = parseTrack(bytes.slice(rotationXOffs))
     if rotationYOffs != 0:
-        animationNode.rotationY = parseTrack(bytes[rotationYOffs:])
+        animationNode.rotationY = parseTrack(bytes.slice(rotationYOffs))
     if rotationZOffs != 0:
-        animationNode.rotationZ = parseTrack(bytes[rotationZOffs:])
+        animationNode.rotationZ = parseTrack(bytes.slice(rotationZOffs))
     if scaleXOffs != 0:
-        animationNode.scaleX = parseTrack(bytes[scaleXOffs:])
+        animationNode.scaleX = parseTrack(bytes.slice(scaleXOffs))
     if scaleYOffs != 0:
-        animationNode.scaleY = parseTrack(bytes[scaleYOffs:])
+        animationNode.scaleY = parseTrack(bytes.slice(scaleYOffs))
     if scaleZOffs != 0:
-        animationNode.scaleZ = parseTrack(bytes[scaleZOffs:])
+        animationNode.scaleZ = parseTrack(bytes.slice(scaleZOffs))
 
     return animationNode
 
@@ -176,7 +176,7 @@ def align(n, multiple):
     return (n + mask) & ~mask
 
 def parse(bytes):
-    buffer = io.BytesIO(bytes)
+    buffer = bytes.toStream()
 
     assert readString(buffer, 4) == 'csab', "Not a csab!!"
     size = readUInt32(buffer)
@@ -216,7 +216,7 @@ def parse(bytes):
     animationNodes = []
     for i in range(anodCount):
         offs = readUInt32(buffer)
-        animationNodes.append(parseAnod(bytes[0x18 + offs:]))
+        animationNodes.append(parseAnod(bytes.slice(0x18 + offs)))
 
     csab = CSAB()
     csab.duration = duration

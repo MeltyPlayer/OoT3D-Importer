@@ -1,4 +1,4 @@
-import struct
+from .array_buffer_slice import ArrayBufferSlice
 
 def readNullTerminatedString(bytes, offset):
     chars = []
@@ -12,7 +12,7 @@ def readNullTerminatedString(bytes, offset):
 class Zar:
     def __init__(self, filePath):
         with open(filePath, "rb") as f:
-            bytes = f.read()
+            bytes = ArrayBufferSlice(f.read())
 
         self.header = Zar.ZarHeader(bytes)
         self.filetypesSection = Zar.FiletypesSection(bytes, self.header)
@@ -22,22 +22,22 @@ class Zar:
             for fileInFiletypeIndex in range(filetype.fileCount):
                 fileIndexOffset = filetype.fileListOffset + 4 * fileInFiletypeIndex
                 fileIndexBytes = bytes[fileIndexOffset:fileIndexOffset+4]
-                (fileIndex,) = struct.unpack("I", fileIndexBytes)
+                (fileIndex,) = fileIndexBytes.unpack("I")
 
                 fileMetadataOffset = self.header.fileMetadataOffset + 8 * fileIndex
                 fileMetadataBytes = bytes[fileMetadataOffset:fileMetadataOffset+8]
                 (
                     fileSize,
                     filenameOffset,
-                ) = struct.unpack("II", fileMetadataBytes)
+                ) = fileMetadataBytes.unpack("II")
 
                 filename = readNullTerminatedString(bytes, filenameOffset)
 
                 fileOffsetOffset = self.header.dataOffset + 4 * fileIndex
                 fileOffsetBytes = bytes[fileOffsetOffset:fileOffsetOffset+4]
-                (fileOffset,) = struct.unpack("I", fileOffsetBytes)
+                (fileOffset,) = fileOffsetBytes.unpack("I")
 
-                fileBytes = bytes[fileOffset:fileOffset+fileSize]
+                fileBytes = bytes.slice(fileOffset, fileSize)
 
                 file = Zar.File(filename, fileBytes)
 
@@ -70,7 +70,7 @@ class Zar:
                 self.filetypesOffset,
                 self.fileMetadataOffset,
                 self.dataOffset
-            ) = struct.unpack("IHHIII", bytes[4:24])
+            ) = bytes.slice(4, 20).unpack("IHHIII")
 
         def __str__(self):
             return '\n'.join([
@@ -106,7 +106,7 @@ class Zar:
                 self.fileCount,
                 self.fileListOffset,
                 self.typeNameOffset,
-            ) = struct.unpack("III", filetypeBytes)
+            ) = filetypeBytes.unpack("III")
 
             self.typeName = readNullTerminatedString(bytes, self.typeNameOffset)
             self.files = []
