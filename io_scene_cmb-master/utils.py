@@ -111,12 +111,17 @@ def getQuaternionCsab(csab, bone, frameIndex):
     if node is None:
         return fromEulerAngles((0, 0, 0))
 
+    # We HAVE to revert the rest pose via a quaternion like this. It was applied
+    # in the order zyx, using an inverted quaternion lets us undo the rest pose
+    # in the order xyz.
     iq = fromEulerAngles(bone.rotation)
     iq.invert()
 
-    rotationX = 0
-    rotationY = 0
-    rotationZ = 0
+    # We HAVE to use the original bone rotation as the default, this fixes the
+    # orientation of certain things (e.g. horse legs pointing downwards).
+    rotationX = bone.rotation[0]
+    rotationY = bone.rotation[1]
+    rotationZ = bone.rotation[2]
 
     animFrame = getAnimFrame(csab, frameIndex)
     if node.rotationX is not None:
@@ -125,13 +130,9 @@ def getQuaternionCsab(csab, bone, frameIndex):
         rotationY = sampleAnimationTrackRotation(node.rotationY, animFrame)
     if node.rotationZ is not None:
         rotationZ = sampleAnimationTrackRotation(node.rotationZ, animFrame)
-    x = fromAxisAngle((1,0,0), rotationX)
-    y = fromAxisAngle((0,1,0), rotationY)
-    z = fromAxisAngle((0,0,1), rotationZ)
-    q = z * y * x
+    q = fromEulerAngles((rotationX, rotationY, rotationZ))
 
     return iq * q
-    #return q * inverseQuaternion
 
 
 def getTranslationCsab(csab, cmbBone, frameIndex):
@@ -141,19 +142,19 @@ def getTranslationCsab(csab, cmbBone, frameIndex):
         if animIndex >= 0:
             node = csab.animationNodes[animIndex]
 
-    translationX = 0
-    translationY = 0
-    translationZ = 0
+    translationX = cmbBone.translation[0]
+    translationY = cmbBone.translation[1]
+    translationZ = cmbBone.translation[2]
 
     if node is not None:
         animFrame = getAnimFrame(csab, frameIndex)
 
         if node.translationX is not None:
-            translationX = sampleAnimationTrack(node.translationX, animFrame) * GLOBAL_SCALE - cmbBone.translation[0]
+            translationX = sampleAnimationTrack(node.translationX, animFrame) * GLOBAL_SCALE
         if node.translationY is not None:
-            translationY = sampleAnimationTrack(node.translationY, animFrame) * GLOBAL_SCALE - cmbBone.translation[1]
+            translationY = sampleAnimationTrack(node.translationY, animFrame) * GLOBAL_SCALE
         if node.translationZ is not None:
-            translationZ = sampleAnimationTrack(node.translationZ, animFrame) * GLOBAL_SCALE - cmbBone.translation[2]
+            translationZ = sampleAnimationTrack(node.translationZ, animFrame) * GLOBAL_SCALE
 
     return (translationX, translationY, translationZ)
 

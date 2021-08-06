@@ -118,11 +118,6 @@ class CsabImporter:
 
             blender_posebone.rotation_mode = 'QUATERNION'
 
-            # TODO: Try using quaternions again:
-            # 1) Set up an invert first to counteract the existing rotation.
-            # 2) Try rotation all bones by a known amount to verify it works as expected.
-            # 3) Undo that, then rotate bones w/ animations. Seems like it might not be zyx--X seems to be first?
-
             #For each position axis:
             pos_fcurves = []
             rot_fcurves = []

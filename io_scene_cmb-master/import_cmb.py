@@ -302,7 +302,7 @@ def LoadModelFromStream(f):
     f.close()
 
     #TODO: Add an option
-    Rotate = False
+    Rotate = True
     if Rotate:
         bpy.ops.object.select_all(action='DESELECT')
 
