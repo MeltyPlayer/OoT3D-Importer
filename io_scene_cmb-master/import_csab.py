@@ -50,10 +50,6 @@ class CsabImporter:
         self.bone_mismatch = False #TODO quick hacky way to show bone mismatch error after done importing
 
     def import_anims(self, clear_armature = True):
-        print(" ==================== ")
-        print(self.anim_name)
-        print(" ==================== ")
-
         '''import all animations in the CSAB file. (Generally there is only one anim per file.)'''
         csab_parsed = self.csab_parsed
         scene = bpy.context.scene
@@ -113,8 +109,6 @@ class CsabImporter:
         for bone_id in get_bone_ids_in_order(bones_parents_ids):
             blender_posebone = boneid_posebone_map[bone_id]
             cmb_bone = self.cmb.skeleton[bone_id]
-
-            print("bone: " + str(bone_id))
 
             blender_posebone.rotation_mode = 'QUATERNION'
 

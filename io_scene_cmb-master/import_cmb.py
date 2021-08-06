@@ -74,7 +74,6 @@ def LoadModelFromStream(f):
     bpy.context.scene.objects.active = skl_obj# Select the skeleton for editing
     bpy.ops.object.mode_set(mode='EDIT')# Set to edit mode
 
-    print("round 1")
     for bone in cmb.skeleton:
         # Save the matrices so we don't have to recalculate them for single-binded meshes later
         boneTransforms[bone.id] = getWorldTransformCmb(cmb.skeleton, bone.id)
@@ -105,9 +104,6 @@ def LoadModelFromStream(f):
         #eb.tail[1] += 0.001# Blender will delete all zero-length bones
 
         translation = eb.head.copy()
-
-        print("bone: " + str(bone.id))
-        print("  translation: " + str(bone.translation) + " / " + str(translation))
 
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
