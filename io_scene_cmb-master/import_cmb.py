@@ -86,8 +86,14 @@ def LoadModelFromStream(f):
         eb.head = bone.translation# Set head position
         eb.matrix = boneTransforms[bone.id].transposed()# Apply matrix
 
-        # TODO: Tail was aimed at parent, not direction of limb
-        eb.tail = transformPosition([-1.0, 0.0, 0.0], boneTransforms[bone.id])
+        # This rotation screws up the bone rotations in the rig, but makes the
+        # animations work as expected.
+        # TODO: Is there a way to have working animations *and* a working rig?
+        eb.tail = transformPosition([0.0, 1.0, 0.0], boneTransforms[bone.id])
+
+        # This rotation makes the bone rotations in the rig look as expected,
+        # but screws up the animations.
+        #eb.tail = transformPosition([1.0, 0.0, 0.0], boneTransforms[bone.id])
 
         # Assign parent bone
         if bone.parentId != -1:
