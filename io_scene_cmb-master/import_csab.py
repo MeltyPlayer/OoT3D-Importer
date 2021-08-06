@@ -118,10 +118,10 @@ class CsabImporter:
 
             blender_posebone.rotation_mode = 'QUATERNION'
 
-            #For each position axis:
             pos_fcurves = []
             rot_fcurves = []
             for i in range(3):
+                # TODO: This is broken, this needs to be "location" instead.
                 pos_data_path = 'pose.bones["{0}"].local_position'.format(blender_posebone.name)
                 pos_fcurves.append(action.fcurves.new(data_path=pos_data_path, index=i))
             for i in range(4):
@@ -129,16 +129,15 @@ class CsabImporter:
                 rot_fcurves.append(action.fcurves.new(data_path=rot_data_path, index=i))
 
             for i in range(animationLength):
-                #cmb_bone.translation[axis_idx]
-                #cmb_bone.rotation[axis_idx]
-
                 translation = getTranslationCsab(self.csab_parsed, cmb_bone, i)
                 quaternion = getQuaternionCsab(self.csab_parsed, cmb_bone, i)
 
+                # TODO: Only write frames where they're needed (if possible?)
+                # TODO: Include tangents in animation (if possible?)
                 for a in range(3):
-                    pos_fcurves[a].keyframe_points.insert(i, translation[a]) #XXX consider LINEAR interpolation
+                    pos_fcurves[a].keyframe_points.insert(i, translation[a])
                 for a in range(4):
-                    rot_fcurves[a].keyframe_points.insert(i, quaternion[a]) #XXX consider LINEAR interpolation
+                    rot_fcurves[a].keyframe_points.insert(i, quaternion[a])
 
         #TODO does not account for multiple animations
         scene.frame_start = 0
