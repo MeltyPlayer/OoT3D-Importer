@@ -116,7 +116,7 @@ def LoadModelFromStream(f):
     for t in cmb.textures:
         f.seek(cmb.texDataOfs + t.dataOffset + startOff)
 
-        image = bpy.data.images.new(t.name, t.width, t.height, alpha=True)
+        image = bpy.data.images.new('{}.png'.format(t.name), t.width, t.height, alpha=True)
         textureNames.append(image.name)
         # Note: Pixels are in floating-point values
         if(cmb.texDataOfs != 0):
