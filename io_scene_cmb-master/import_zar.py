@@ -31,10 +31,9 @@ def load_zar( operator, context ):
         # Parse model
         cmbList = zar.getFiles("cmb")
 
-        cmbBytes = None
+        cmbBytesList = []
         if cmbList and len(cmbList) > 0:
-            assert len(cmbList) == 1, "Expected a single cmb model!"
-            cmbBytes = cmbList[0].bytes
+            cmbBytesList.append(cmbList[0].bytes)
         else:
             # TODO: Is this robust enough?
             # If no models exist, this might be a scene? Scene models are in a
@@ -42,15 +41,18 @@ def load_zar( operator, context ):
             realFilePath = filePath.replace(".zar", "_0_info.zsi")
             if os.path.isfile(realFilePath):
                 with open(realFilePath, "rb") as f:
-                    cmbBytes = f.read()
+                    cmbBytesList.append(f.read())
 
-        cmb = LoadModelFromStream(cmbBytes.toStream())
+        # Loads models
+        cmbs = []
+        for cmbBytes in cmbBytesList:
+            cmbs.append(LoadModelFromStream(cmbBytes.toStream()))
 
+        cmb = cmbs[0]
         assert cmb is not None, "No CMB was read from the file!"
 
         # Parse animations
         csabList = zar.getFiles("csab")
-
         if csabList:
             for i, csabBytes in enumerate(csabList):
                 csab = parse(csabBytes.bytes)
@@ -61,5 +63,7 @@ def load_zar( operator, context ):
                 ).import_anims(
                     i == 0 # Clear armatures
                 )
+
+        # TODO: Support .anb format animations for Link.
 
         return {"FINISHED"}
