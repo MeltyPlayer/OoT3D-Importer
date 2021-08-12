@@ -30,7 +30,7 @@ class AnimationTrackLinear:
 class AnimationTrackHermite:
     def __init__(self):
         self.type = ANIMATION_TRACK_TYPE_HERMITE
-        self.timeEnd: -1
+        self.timeEnd = -1
         self.frames = []
 
 class AnimationTrackInteger:
