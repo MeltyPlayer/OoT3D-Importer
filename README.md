@@ -31,3 +31,4 @@ A Blender 2.79 plugin for importing models from Ocarina of Time 3D.
 
 - This is meant to be used with Blender 2.79.
 - The io_scene_cmb-master directory should be copied into [blender install directory]/2.79/scripts/addons, i.e. [blender install directory]/2.79/scripts/addons/io_scene_cmb-master.
+- Two new import options should appear: File > Import > OoT3D (.zar) and File > Import > CtrModelBinary (.cmb).
