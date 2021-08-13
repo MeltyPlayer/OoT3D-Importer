@@ -93,6 +93,7 @@ def LoadModelFromStream(f):
         # This rotation makes the bone rotations in the rig look as expected,
         # but screws up the animations.
         #eb.tail = transformPosition([1.0, 0.0, 0.0], boneTransforms[bone.id])
+        #eb.roll = -math.pi / 2
 
         # Assign parent bone
         if bone.parentId != -1:
