@@ -25,6 +25,7 @@ def transformNormalInverse(norm, invMat):
     return n
 
 def transformNormal(norm, mat):
+    # TODO, SLOW: Should not need to invert matrix for each normal
     invMat = mat.inverted()
     return transformNormalInverse(norm, invMat)
 

@@ -11,7 +11,12 @@ A Blender 2.79 plugin for importing models from Ocarina of Time 3D.
 
 ## Features
 
-- [x] CMB support
+- [ ] CMB support
+  - [x] Multiple meshes
+  - [x] Rigs
+  - [x] Materials
+  - [x] Textures
+  - [ ] Alpha blend modes
 - [x] ZAR support
 - [ ] CSAB support
   - [x] parsing files
@@ -20,12 +25,12 @@ A Blender 2.79 plugin for importing models from Ocarina of Time 3D.
   - [ ] keyframe tangents
 - [ ] ANB support (Link's animations)
 - [ ] CMAB support (animated textures)
-- [ ] fixing materials
-  - [ ] e.g. dog shading
-  - [ ] blend modes
-- [ ] fixing bone orientation in the rig
-- [ ] Majora's Mask support
-- [ ] Luigi's Mansion support
+- [ ] Bugfixes
+  - [ ] Custom split normals cause weird shadows on meshes
+  - [ ] Bone orientation is off by 90 degrees
+- [ ] Support for other Grezzo games
+  - [ ] Majora's Mask
+  - [ ] Luigi's Mansion
 
 ## Usage guide
 

@@ -290,6 +290,7 @@ def LoadModelFromStream(f):
 
         # Blender has no idea what normals are
         #TODO: Add an option
+        # TODO: Custom split normals always look broken, are the values wrong?
         UseCustomNormals = True
         if(UseCustomNormals and hasNrm):
             nmesh.normals_split_custom_set_from_vertices([vertices[i].nrm for i in range(len(vertices))])
