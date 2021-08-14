@@ -328,7 +328,10 @@ def sampleAnimationTrackHermite(track, frame):
     return hermiteInterpolateFrames(k0, k1, t, length)
 
 def differenceInRadians(lhs, rhs):
-  return ((((lhs - rhs) % math.tau) + (math.tau + math.pi)) % math.tau) - math.pi
+  pi = math.pi
+  pi2 = 2 * math.pi
+  pi3 = 3 * math.pi
+  return ((((lhs - rhs) % pi2) + pi3) % pi2) - pi
 
 def sampleAnimationTrackHermiteRotation(track, frame):
     frames = track.frames
@@ -394,7 +397,7 @@ def sampleAnimationTrackLinearRotation(track, frame):
     k1 = frames[idx1]
 
     t = (frame - k0.time) / (k1.time - k0.time)
-    return lerpAngle(k0.value, k1.value, t, math.tau)
+    return lerpAngle(k0.value, k1.value, t, 2 * math.pi)
 
 def sampleAnimationTrackRotation(track, frame):
     if track.type == ANIMATION_TRACK_TYPE_LINEAR:
