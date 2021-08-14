@@ -131,7 +131,9 @@ def getQuaternionCsab(csab, bone, frameIndex):
         rotationY = sampleAnimationTrackRotation(node.rotationY, animFrame)
     if node.rotationZ is not None:
         rotationZ = sampleAnimationTrackRotation(node.rotationZ, animFrame)
+
     q = fromEulerAngles((rotationX, rotationY, rotationZ))
+    q.normalize()
 
     return iq * q
 

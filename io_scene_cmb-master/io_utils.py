@@ -39,6 +39,14 @@ def readInt32(file):
 def readFloat(file):
     return struct.unpack("<f", file.read(4))[0]
 
+def readSn16(file):
+    i16 = readInt16(file)
+    return i16 / (65535 / 2)
+
+def readUn16(file):
+    u16 = readUInt16(file)
+    return u16 / 65535
+
 # Note: Default data type is float
 def readArray(file, elements, datatype = 0):
     return [readDataType(file, datatype) for _ in range(elements)]

@@ -23,6 +23,7 @@ class Cmb(object):
         self.meshes = [Mesh()]
         self.shapes = [Sepd()]
         self.vatr = Vatr()
+        self.isLink = False
 
     def read(self, f, startOff):
         f.seek(startOff)
@@ -55,6 +56,8 @@ class Cmb(object):
         self.vatrOfs = header.vatrOfs
         self.name = header.name
         self.version = Version
+
+        self.isLink = self.name == "childlink_v2" or self.name == "link_v2"
 
         return self
 

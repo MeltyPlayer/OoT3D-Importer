@@ -1,7 +1,7 @@
 # Shamelessly based on https://github.com/magcius/noclip.website/blob/e7da91f0d8fcef6ea58659e991fd6408b940194e/src/oot3d/csab.ts
 
 import math
-from .io_utils import (readDataType, readString, readArray, readFloat,
+from .io_utils import (readDataType, readString, readArray, readFloat, readSn16, readUn16,
                     readInt16, readUInt16, readUInt32, readInt32, readUShort,
                     readShort, readByte, readUByte)
 from .common import GLOBAL_SCALE
@@ -62,168 +62,187 @@ class CSAB:
         self.animationNodes = []
         self.boneToAnimationTable = []
 
-def parseTrack(bytes):
-    buffer = bytes.toStream()
-
-    type = 0
-    numKeyframes = -1
-    unk1 = -1
-    timeEnd = -1
-
-    #if (version === Version.Ocarina) {
-    type = readUInt32(buffer)
-    numKeyframes = readUInt32(buffer)
-    unk1 = readUInt32(buffer)
-    timeEnd = readUInt32(buffer) + 1
-    #} else if (version === Version.Majora || version === Version.LuigisMansion) {
-    #    throw "xxx";
-    #}
-
-    keyframeTableIdx = 0x10
-    buffer.seek(keyframeTableIdx)
-
-    if type == ANIMATION_TRACK_TYPE_LINEAR:
-        frames = []
-        for i in range(numKeyframes):
-            frame = AnimationKeyframeLinear()
-
-            frame.time = readUInt32(buffer)
-            frame.value = readFloat(buffer)
-
-            frames.append(frame)
-
-        track = AnimationTrackLinear()
-        track.frames = frames
-        return track
-
-    elif type == ANIMATION_TRACK_TYPE_HERMITE:
-        frames = []
-        for i in range(numKeyframes):
-            frame = AnimationKeyframeHermite()
-
-            frame.time = readUInt32(buffer)
-            frame.value = readFloat(buffer)
-            frame.tangentIn = readFloat(buffer)
-            frame.tangentOut = readFloat(buffer)
-
-            frames.append(frame)
-
-        track = AnimationTrackHermite()
-        track.frames = frames
-        track.timeEnd = timeEnd
-        return track
-
-    elif type == ANIMATION_TRACK_TYPE_INTEGER:
-        frames = []
-        for i in range(numKeyframes):
-            frame = AnimationKeyframeLinear()
-
-            frame.time = readUInt32(buffer)
-            frame.value = readFloat(buffer)
-
-            frames.append(frame)
-
-        track = AnimationTrackInteger()
-        track.frames = frames
-        return track
-
-    else:
-        assert False, "Unsupported animation track type!"
-
-# "Animation Node"?
-def parseAnod(bytes):
-    buffer = bytes.toStream()
-    assert readString(buffer, 4) == 'anod', "Not reading an anod!"
-
-    boneIndex = readUInt32(buffer)
-
-    translationXOffs = readUInt16(buffer)
-    translationYOffs = readUInt16(buffer)
-    translationZOffs = readUInt16(buffer)
-    rotationXOffs = readUInt16(buffer)
-    rotationYOffs = readUInt16(buffer)
-    rotationZOffs = readUInt16(buffer)
-    scaleXOffs = readUInt16(buffer)
-    scaleYOffs = readUInt16(buffer)
-    scaleZOffs = readUInt16(buffer)
-    assert readUInt16(buffer) == 0x00, "Anod did not end with 00!"
-
-    animationNode = AnimationNode()
-    animationNode.boneIndex = boneIndex
-    if translationXOffs != 0:
-        animationNode.translationX = parseTrack(bytes.slice(translationXOffs))
-    if translationYOffs != 0:
-        animationNode.translationY = parseTrack(bytes.slice(translationYOffs))
-    if translationZOffs != 0:
-        animationNode.translationZ = parseTrack(bytes.slice(translationZOffs))
-    if rotationXOffs != 0:
-        animationNode.rotationX = parseTrack(bytes.slice(rotationXOffs))
-    if rotationYOffs != 0:
-        animationNode.rotationY = parseTrack(bytes.slice(rotationYOffs))
-    if rotationZOffs != 0:
-        animationNode.rotationZ = parseTrack(bytes.slice(rotationZOffs))
-    if scaleXOffs != 0:
-        animationNode.scaleX = parseTrack(bytes.slice(scaleXOffs))
-    if scaleYOffs != 0:
-        animationNode.scaleY = parseTrack(bytes.slice(scaleYOffs))
-    if scaleZOffs != 0:
-        animationNode.scaleZ = parseTrack(bytes.slice(scaleZOffs))
-
-    return animationNode
-
 def align(n, multiple):
     mask = multiple - 1
     return (n + mask) & ~mask
 
-def parse(bytes):
-    buffer = bytes.toStream()
+class CsabParser:
+    def __init__(self, cmb):
+        self.cmb = cmb
 
-    assert readString(buffer, 4) == 'csab', "Not a csab!!"
-    size = readUInt32(buffer)
+    def parseTrack(self, bytes, trackType):
+        buffer = bytes.toStream()
 
-    subversion = readUInt32(buffer)
-    assert subversion == 0x03
-    assert readUInt32(buffer) == 0x00
+        type = 0
+        numKeyframes = -1
+        unk1 = -1
+        timeEnd = -1
 
-    assert readUInt32(buffer) == 0x01 # num animations?
-    assert readUInt32(buffer) == 0x18 # location?
+        #if (version === Version.Ocarina) {
+        type = readUInt32(buffer)
+        numKeyframes = readUInt32(buffer)
+        unk1 = readUInt32(buffer)
+        timeEnd = readUInt32(buffer) + 1
+        #} else if (version === Version.Majora || version === Version.LuigisMansion) {
+        #    throw "xxx";
+        #}
 
-    assert readUInt32(buffer) == 0x00
-    assert readUInt32(buffer) == 0x00
-    assert readUInt32(buffer) == 0x00
-    assert readUInt32(buffer) == 0x00
+        keyframeTableIdx = 0x10
+        buffer.seek(keyframeTableIdx)
 
-    duration = readUInt32(buffer)
-    # loop mode?
-    assert readUInt32(buffer) == 0x00
+        isLink = self.cmb.isLink
 
-    loopMode = LOOP_MODE_REPEAT
-    anodCount = readUInt32(buffer)
-    boneCount = readUInt32(buffer)
-    assert anodCount <= boneCount
+        if type == ANIMATION_TRACK_TYPE_LINEAR:
+            frames = []
+            for i in range(numKeyframes):
+                frame = AnimationKeyframeLinear()
 
-    # This appears to be an inverse of the bone index in each array, probably for fast binding?
-    boneToAnimationTable = [None] * boneCount
-    boneTableIdx = 0x38;
-    buffer.seek(boneTableIdx)
-    for i in range(boneCount):
-        boneToAnimationTable[i] = readInt16(buffer)
-        boneTableIdx += 2
+                # For Link, each rotation value is 2 bytes instead of 4.
+                if isLink and trackType == 'rotation':
+                    frame.time = readUInt16(buffer)
+                    frame.value = readSn16(buffer)
+                else:
+                    frame.time = readUInt32(buffer)
+                    frame.value = readFloat(buffer)
 
-    # TODO(jstpierre): This doesn't seem like a Grezzo thing to do.
-    anodTableIdx = align(boneTableIdx, 0x04);
-    buffer.seek(anodTableIdx)
-    animationNodes = []
-    for i in range(anodCount):
-        offs = readUInt32(buffer)
-        animationNodes.append(parseAnod(bytes.slice(0x18 + offs)))
+                frames.append(frame)
 
-    csab = CSAB()
-    csab.duration = duration
-    csab.loopMode = loopMode
-    csab.boneToAnimationTable = boneToAnimationTable
-    csab.animationNodes = animationNodes
-    return csab
+            track = AnimationTrackLinear()
+            track.frames = frames
+            return track
+
+        elif type == ANIMATION_TRACK_TYPE_HERMITE:
+            frames = []
+            for i in range(numKeyframes):
+                frame = AnimationKeyframeHermite()
+
+                # For Link, each rotation value is 2 bytes instead of 4.
+                if isLink and trackType == 'rotation':
+                    frame.time = readUInt16(buffer)
+                    frame.value = readSn16(buffer) * math.pi
+                    frame.tangentIn = readSn16(buffer)
+                    frame.tangentOut = readSn16(buffer)
+                else:
+                    frame.time = readUInt32(buffer)
+                    frame.value = readFloat(buffer)
+                    frame.tangentIn = readFloat(buffer)
+                    frame.tangentOut = readFloat(buffer)
+
+                frames.append(frame)
+
+            track = AnimationTrackHermite()
+            track.frames = frames
+            track.timeEnd = timeEnd
+
+            return track
+
+        elif type == ANIMATION_TRACK_TYPE_INTEGER:
+            frames = []
+            for i in range(numKeyframes):
+                frame = AnimationKeyframeLinear()
+
+                frame.time = readUInt32(buffer)
+                frame.value = readFloat(buffer)
+
+                frames.append(frame)
+
+            track = AnimationTrackInteger()
+            track.frames = frames
+            return track
+
+        else:
+            assert False, "Unsupported animation track type!"
+
+    # "Animation Node"?
+    def parseAnod(self, bytes):
+        buffer = bytes.toStream()
+        assert readString(buffer, 4) == 'anod', "Not reading an anod!"
+
+        boneIndex = readUInt32(buffer)
+
+        translationXOffs = readUInt16(buffer)
+        translationYOffs = readUInt16(buffer)
+        translationZOffs = readUInt16(buffer)
+        rotationXOffs = readUInt16(buffer)
+        rotationYOffs = readUInt16(buffer)
+        rotationZOffs = readUInt16(buffer)
+        scaleXOffs = readUInt16(buffer)
+        scaleYOffs = readUInt16(buffer)
+        scaleZOffs = readUInt16(buffer)
+        assert readUInt16(buffer) == 0x00, "Anod did not end with 00!"
+
+        animationNode = AnimationNode()
+        animationNode.boneIndex = boneIndex
+        if translationXOffs != 0:
+            animationNode.translationX = self.parseTrack(bytes.slice(translationXOffs), 'translation')
+        if translationYOffs != 0:
+            animationNode.translationY = self.parseTrack(bytes.slice(translationYOffs), 'translation')
+        if translationZOffs != 0:
+            animationNode.translationZ = self.parseTrack(bytes.slice(translationZOffs), 'translation')
+        if rotationXOffs != 0:
+            animationNode.rotationX = self.parseTrack(bytes.slice(rotationXOffs), 'rotation')
+        if rotationYOffs != 0:
+            animationNode.rotationY = self.parseTrack(bytes.slice(rotationYOffs), 'rotation')
+        if rotationZOffs != 0:
+            animationNode.rotationZ = self.parseTrack(bytes.slice(rotationZOffs), 'rotation')
+        if scaleXOffs != 0:
+            animationNode.scaleX = self.parseTrack(bytes.slice(scaleXOffs), 'scale')
+        if scaleYOffs != 0:
+            animationNode.scaleY = self.parseTrack(bytes.slice(scaleYOffs), 'scale')
+        if scaleZOffs != 0:
+            animationNode.scaleZ = self.parseTrack(bytes.slice(scaleZOffs), 'scale')
+
+        return animationNode
+
+    def parse(self, bytes):
+        buffer = bytes.toStream()
+
+        assert readString(buffer, 4) == 'csab', "Not a csab!!"
+        size = readUInt32(buffer)
+
+        subversion = readUInt32(buffer)
+        assert subversion == 0x03
+        assert readUInt32(buffer) == 0x00
+
+        assert readUInt32(buffer) == 0x01 # num animations?
+        assert readUInt32(buffer) == 0x18 # location?
+
+        assert readUInt32(buffer) == 0x00
+        assert readUInt32(buffer) == 0x00
+        assert readUInt32(buffer) == 0x00
+        assert readUInt32(buffer) == 0x00
+
+        duration = readUInt32(buffer)
+        # loop mode?
+        assert readUInt32(buffer) == 0x00
+
+        loopMode = LOOP_MODE_REPEAT
+        anodCount = readUInt32(buffer)
+        boneCount = readUInt32(buffer)
+        assert anodCount <= boneCount
+
+        # This appears to be an inverse of the bone index in each array, probably for fast binding?
+        boneToAnimationTable = [None] * boneCount
+        boneTableIdx = 0x38;
+        buffer.seek(boneTableIdx)
+        for i in range(boneCount):
+            boneToAnimationTable[i] = readInt16(buffer)
+            boneTableIdx += 2
+
+        # TODO(jstpierre): This doesn't seem like a Grezzo thing to do.
+        anodTableIdx = align(boneTableIdx, 0x04);
+        buffer.seek(anodTableIdx)
+        animationNodes = []
+        for i in range(anodCount):
+            offs = readUInt32(buffer)
+            animationNodes.append(self.parseAnod(bytes.slice(0x18 + offs)))
+
+        csab = CSAB()
+        csab.duration = duration
+        csab.loopMode = loopMode
+        csab.boneToAnimationTable = boneToAnimationTable
+        csab.animationNodes = animationNodes
+        return csab
 
 def getAnimFrame(anim, frame):
     # Be careful of floating point precision.
@@ -264,12 +283,15 @@ def sampleAnimationTrackLinear(track, frame):
     t = (frame - k0.time) / (k1.time - k0.time)
     return lerp_keyframe_linear(k0.value, k1.value, t)
 
-def hermiteInterpolate(keyframe_hermite_0, keyframe_hermite_1, t, length):
-    p0 = keyframe_hermite_0.value
-    p1 = keyframe_hermite_1.value
-    s0 = keyframe_hermite_0.tangentOut * length
-    s1 = keyframe_hermite_1.tangentIn * length
+def hermiteInterpolate(value0, tangentOut0, value1, tangentIn1, t, length):
+    p0 = value0
+    p1 = value1
+    s0 = tangentOut0 * length
+    s1 = tangentIn1 * length
     return getPointHermite(p0, p1, s0, s1, t)
+
+def hermiteInterpolateFrames(k0, k1, t, length):
+    return hermiteInterpolate(k0.value, k0.tangentOut, k1.value, k1.tangentIn, t, length)
 
 def getPointHermite(p0, p1, s0, s1, t):
     cf0 = (p0 *  2) + (p1 * -2) + (s0 *  1) +  (s1 *  1)
@@ -302,7 +324,41 @@ def sampleAnimationTrackHermite(track, frame):
 
     length = k1.time - k0.time % track.timeEnd
     t = (frame - k0.time) / length
-    return hermiteInterpolate(k0, k1, t, length)
+
+    return hermiteInterpolateFrames(k0, k1, t, length)
+
+def differenceInRadians(lhs, rhs):
+  return ((((lhs - rhs) % math.tau) + (math.tau + math.pi)) % math.tau) - math.pi
+
+def sampleAnimationTrackHermiteRotation(track, frame):
+    frames = track.frames
+
+    # Find the first frame.
+    idx1 = None
+    try:
+        idx1 = next(i for i, key in enumerate(frames) if frame < key.time)
+    except:
+        idx1 = -1
+
+    if idx1 <= 0:
+        k0 = frames[len(frames) - 1]
+        k1 = frames[0]
+    else:
+        idx0 = idx1 - 1
+        k0 = frames[idx0]
+        k1 = frames[idx1]
+
+    length = k1.time - k0.time % track.timeEnd
+    t = (frame - k0.time) / length
+
+    r0 = k0.value
+    r1 = k1.value
+
+    # Fixes gimbal lock
+    r1 = r0 + differenceInRadians(r1, r0)
+
+    return hermiteInterpolate(r0, k0.tangentOut, r1, k1.tangentIn, t, length)
+
 
 def sampleAnimationTrack(track, frame):
     if track.type == ANIMATION_TRACK_TYPE_LINEAR:
@@ -344,6 +400,6 @@ def sampleAnimationTrackRotation(track, frame):
     if track.type == ANIMATION_TRACK_TYPE_LINEAR:
         return sampleAnimationTrackLinearRotation(track, frame)
     elif track.type == ANIMATION_TRACK_TYPE_HERMITE:
-        return sampleAnimationTrackHermite(track, frame)
+        return sampleAnimationTrackHermiteRotation(track, frame)
     else:
         assert False, "Unsupported animation track type to sample!"

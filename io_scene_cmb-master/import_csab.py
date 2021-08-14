@@ -122,9 +122,14 @@ class CsabImporter:
                 rot_data_path = 'pose.bones["{0}"].rotation_quaternion'.format(blender_posebone.name)
                 rot_fcurves.append(action.fcurves.new(data_path=rot_data_path, index=i))
 
+            previousQuaternion = None
             for i in range(animationLength):
                 translation = getTranslationCsab(self.csab_parsed, cmb_bone, i)
                 quaternion = getQuaternionCsab(self.csab_parsed, cmb_bone, i)
+
+                # Keeps quaternion signs the same to prevent gimbal lock.
+                if previousQuaternion is not None and previousQuaternion.dot(quaternion) < 0:
+                    quaternion *= -1
 
                 # TODO: Only write frames where they're needed (if possible?)
                 # TODO: Include tangents in animation (if possible?)
@@ -132,6 +137,8 @@ class CsabImporter:
                     pos_fcurves[a].keyframe_points.insert(i, translation[a])
                 for a in range(4):
                     rot_fcurves[a].keyframe_points.insert(i, quaternion[a])
+
+                previousQuaternion = quaternion
 
         #TODO does not account for multiple animations
         scene.frame_start = 0

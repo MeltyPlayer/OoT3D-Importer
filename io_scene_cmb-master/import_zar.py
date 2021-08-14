@@ -5,7 +5,7 @@ from .csab import csab_file
 from .import_cmb import LoadModelFromStream
 from .import_csab import CsabImporter
 from .zar import Zar
-from .csab2 import parse
+from .csab2 import CsabParser
 
 #TODO: Clean up
 def load_zar( operator, context ):
@@ -55,7 +55,8 @@ def load_zar( operator, context ):
         csabList = zar.getFiles("csab")
         if csabList:
             for i, csabBytes in enumerate(csabList):
-                csab = parse(csabBytes.bytes)
+                csab = CsabParser(cmb).parse(csabBytes.bytes)
+
                 CsabImporter(
                     csab,
                     cmb,
