@@ -21,9 +21,10 @@ A Blender 2.79 plugin for importing models from Ocarina of Time 3D.
 - [ ] CSAB support
   - [x] parsing files
   - [x] rotation keyframes
+  - [x] Link's animations
   - [ ] translation keyframes
   - [ ] keyframe tangents
-- [ ] ANB support (Link's animations)
+- [ ] Improve latency
 - [ ] CMAB support (animated textures)
 - [ ] Bugfixes
   - [ ] Custom split normals cause weird shadows on meshes
