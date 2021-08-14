@@ -9,6 +9,7 @@ from .common import GLOBAL_SCALE
 ANIMATION_TRACK_TYPE_LINEAR = 0x01
 ANIMATION_TRACK_TYPE_HERMITE = 0x02
 ANIMATION_TRACK_TYPE_INTEGER = 0x03
+TAU = math.pi * 2
 
 class AnimationKeyframeLinear:
     def __init__(self):
@@ -328,7 +329,7 @@ def sampleAnimationTrackHermite(track, frame):
     return hermiteInterpolateFrames(k0, k1, t, length)
 
 def differenceInRadians(lhs, rhs):
-  return ((((lhs - rhs) % math.tau) + (math.tau + math.pi)) % math.tau) - math.pi
+  return ((((lhs - rhs) % TAU) + (TAU + math.pi)) % TAU) - math.pi
 
 def sampleAnimationTrackHermiteRotation(track, frame):
     frames = track.frames
@@ -394,7 +395,7 @@ def sampleAnimationTrackLinearRotation(track, frame):
     k1 = frames[idx1]
 
     t = (frame - k0.time) / (k1.time - k0.time)
-    return lerpAngle(k0.value, k1.value, t, math.tau)
+    return lerpAngle(k0.value, k1.value, t, TAU)
 
 def sampleAnimationTrackRotation(track, frame):
     if track.type == ANIMATION_TRACK_TYPE_LINEAR:
