@@ -9,7 +9,7 @@ A Blender 2.79 plugin for importing models from Ocarina of Time 3D.
 - @M-1-RLG, AKA M-1, as his [CMB plugin](https://github.com/M-1-RLG/io_scene_cmb) was used as the base of this importer.
 - @magcius, AKA Jasper, as their [animated model viewer](https://github.com/magcius/noclip.website/tree/master/src/oot3d) was ported to add CSAB support.
 
-## Features
+## To-do
 
 - [ ] CMB support
   - [x] Multiple meshes
@@ -24,7 +24,7 @@ A Blender 2.79 plugin for importing models from Ocarina of Time 3D.
   - [x] Link's animations
   - [ ] translation keyframes
   - [ ] keyframe tangents
-- [ ] Improve latency
+- [ ] Improve latency (especially for Link, his models take ~1 minute to load)
 - [ ] CMAB support (animated textures)
 - [ ] Bugfixes
   - [ ] Custom split normals cause weird shadows on meshes
