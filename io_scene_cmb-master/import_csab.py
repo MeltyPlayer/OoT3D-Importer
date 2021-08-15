@@ -116,7 +116,7 @@ class CsabImporter:
             rot_fcurves = []
             for i in range(3):
                 # TODO: This is broken, this needs to be "location" instead.
-                pos_data_path = 'pose.bones["{0}"].local_position'.format(blender_posebone.name)
+                pos_data_path = 'pose.bones["{0}"].location'.format(blender_posebone.name)
                 pos_fcurves.append(action.fcurves.new(data_path=pos_data_path, index=i))
             for i in range(4):
                 rot_data_path = 'pose.bones["{0}"].rotation_quaternion'.format(blender_posebone.name)

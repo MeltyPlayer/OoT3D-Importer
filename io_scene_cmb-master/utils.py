@@ -4,6 +4,7 @@ import mathutils
 
 from .common import GLOBAL_SCALE
 from .csab2 import getAnimFrame, sampleAnimationTrack, sampleAnimationTrackRotation
+from .quaternion_utils import fromAxisAngle, fromEulerAngles
 
 # Ported from OpenTK
 # blender might have something but I'm too lazy to check
@@ -16,6 +17,9 @@ def transformPosition(pos, mat):
     p[1] = dot(pos, mat.col[1].xyz) + mat.row[3].y
     p[2] = dot(pos, mat.col[2].xyz) + mat.row[3].z
     return p
+
+def transformPositionWithQuaternion(pos, q):
+    return transformPosition(pos, q.to_matrix().to_4x4())
 
 def transformNormalInverse(norm, invMat):
     n = [0.0, 0.0, 0.0]
@@ -104,6 +108,7 @@ def getRotationCsab(csab, bone, frameIndex):
 
 def getQuaternionCsab(csab, bone, frameIndex):
     node = None
+    # TODO: Slow, shouldn't need to keep doing these lookups.
     if csab is not None:
         animIndex = csab.boneToAnimationTable[bone.id]
         if animIndex >= 0:
@@ -115,6 +120,7 @@ def getQuaternionCsab(csab, bone, frameIndex):
     # We HAVE to revert the rest pose via a quaternion like this. It was applied
     # in the order zyx, using an inverted quaternion lets us undo the rest pose
     # in the order xyz.
+    # TODO: Slow, should only need to calculate this once.
     iq = fromEulerAngles(bone.rotation)
     iq.invert()
 
@@ -132,6 +138,7 @@ def getQuaternionCsab(csab, bone, frameIndex):
     if node.rotationZ is not None:
         rotationZ = sampleAnimationTrackRotation(node.rotationZ, animFrame)
 
+    # TODO: Faster to memoize w/ map or create instance each time?
     q = fromEulerAngles((rotationX, rotationY, rotationZ))
     q.normalize()
 
@@ -140,24 +147,33 @@ def getQuaternionCsab(csab, bone, frameIndex):
 
 def getTranslationCsab(csab, cmbBone, frameIndex):
     node = None
+    # TODO: Slow, shouldn't need to keep doing these lookups.
     if csab is not None:
         animIndex = csab.boneToAnimationTable[cmbBone.id]
         if animIndex >= 0:
             node = csab.animationNodes[animIndex]
 
-    translationX = cmbBone.translation[0]
-    translationY = cmbBone.translation[1]
-    translationZ = cmbBone.translation[2]
+    if True or node is None:
+        return (0, 0, 0)
 
-    if node is not None:
-        animFrame = getAnimFrame(csab, frameIndex)
+    # TODO: Translation is jittery, looks like yes...
+    # TODO: Might need to account for rotated translation?
+    # TODO: Slow, shouldn't need to keep doing these calculations
+    q = fromEulerAngles(cmbBone.rotation)
+    boneTranslation = transformPositionWithQuaternion(cmbBone.translation, q)
+    boneTranslation = cmbBone.translation
 
-        if node.translationX is not None:
-            translationX = sampleAnimationTrack(node.translationX, animFrame) * GLOBAL_SCALE
-        if node.translationY is not None:
-            translationY = sampleAnimationTrack(node.translationY, animFrame) * GLOBAL_SCALE
-        if node.translationZ is not None:
-            translationZ = sampleAnimationTrack(node.translationZ, animFrame) * GLOBAL_SCALE
+    translationX = 0
+    translationY = 0
+    translationZ = 0
+
+    animFrame = getAnimFrame(csab, frameIndex)
+    if node.translationX is not None:
+        translationX = sampleAnimationTrack(node.translationX, animFrame) * GLOBAL_SCALE - boneTranslation[0]
+    if node.translationY is not None:
+        translationY = sampleAnimationTrack(node.translationY, animFrame) * GLOBAL_SCALE - boneTranslation[1]
+    if node.translationZ is not None:
+        translationZ = sampleAnimationTrack(node.translationZ, animFrame) * GLOBAL_SCALE - boneTranslation[2]
 
     return (translationX, translationY, translationZ)
 
@@ -166,17 +182,17 @@ def calcBoneMatrixCsab(csab, cmbBone, frameIndex):
     scale = getScaleCsab(csab, cmbBone, frameIndex)
     rotation = getRotationCsab(csab, cmbBone, frameIndex)
 
-    return fromTsr(translation, scale, rotation, False)
+    return fromTsr(translation, scale, rotation)
 
 
-def fromTsr(translationTriplet, scaleTriplet, radiansTriplet, autoFlipQuaternion = True):
+def fromTsr(translationTriplet, scaleTriplet, radiansTriplet):
     T = mathutils.Matrix.Translation(translationTriplet).to_4x4().transposed()
     S = mathutils.Matrix.Translation((0, 0, 0)).to_4x4()
     S[0][0] = scaleTriplet[0]
     S[1][1] = scaleTriplet[1]
     S[2][2] = scaleTriplet[2]
 
-    R = fromEulerAngles(radiansTriplet, autoFlipQuaternion).to_matrix().to_4x4().transposed()
+    R = fromEulerAngles(radiansTriplet).to_matrix().to_4x4().transposed()
 
     M = mathutils.Matrix.Translation((0, 0, 0)).to_4x4()
 
@@ -185,22 +201,3 @@ def fromTsr(translationTriplet, scaleTriplet, radiansTriplet, autoFlipQuaternion
     M = M * T
 
     return M
-
-def fromAxisAngle(axis, angle):
-    return mathutils.Quaternion((
-        math.cos(angle / 2),
-        axis[0] * math.sin(angle / 2),
-        axis[1] * math.sin(angle / 2),
-        axis[2] * math.sin(angle / 2),
-    ))
-
-def fromEulerAngles(rot, autoFlipQuaternion = True):
-    x = fromAxisAngle((1,0,0), rot[0])
-    y = fromAxisAngle((0,1,0), rot[1])
-    z = fromAxisAngle((0,0,1), rot[2])
-    q = z * y * x
-
-    if autoFlipQuaternion:
-        if q.w < 0: q *= -1
-
-    return q
