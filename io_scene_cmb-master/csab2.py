@@ -265,6 +265,7 @@ def sampleAnimationTrackLinear(track, frame):
     frames = track.frames
 
     # Find the first frame.
+    # TODO: Slow, only calculate this once.
     idx1 = None
     try:
         idx1 = next(i for i, key in enumerate(frames) if frame < key.time)
@@ -308,6 +309,7 @@ def sampleAnimationTrackHermite(track, frame):
     frames = track.frames
 
     # Find the first frame.
+    # TODO: Slow, only calculate this once.
     idx1 = None
     try:
         idx1 = next(i for i, key in enumerate(frames) if frame < key.time)
@@ -337,6 +339,7 @@ def sampleAnimationTrackHermiteRotation(track, frame):
     frames = track.frames
 
     # Find the first frame.
+    # TODO: Slow, only calculate this once.
     idx1 = None
     try:
         idx1 = next(i for i, key in enumerate(frames) if frame < key.time)
@@ -381,6 +384,7 @@ def sampleAnimationTrackLinearRotation(track, frame):
     frames = track.frames
 
     # Find the first frame.
+    # TODO: Slow, only calculate this once.
     idx1 = None
     try:
         idx1 = next(i for i, key in enumerate(frames) if frame < key.time)
