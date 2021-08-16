@@ -80,7 +80,7 @@ def LoadModelFromStream(f):
 
         eb = skeleton.edit_bones.new('bone_{}'.format(bone.id))
 
-        eb.use_inherit_scale = eb.use_inherit_rotation = eb.use_deform = True# Inherit rotation/scale and use deform
+        eb.use_local_location = eb.use_inherit_scale = eb.use_inherit_rotation = eb.use_deform = True# Inherit rotation/scale and use deform
 
         eb.head = bone.translation# Set head position
         eb.matrix = boneTransforms[bone.id].transposed()# Apply matrix

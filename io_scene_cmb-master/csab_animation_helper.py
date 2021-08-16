@@ -1,6 +1,7 @@
+from .common import GLOBAL_SCALE
 from .csab2 import getAnimFrame, sampleAnimationTrack, sampleAnimationTrackRotation
 from .quaternion_utils import fromEulerAngles
-from .utils import fromTsr
+from .utils import fromTsr, transformPositionWithQuaternion
 
 class CsabAnimationHelper:
     def __init__(self, cmb):
@@ -21,14 +22,14 @@ class CsabAnimationHelper:
             if animIndex >= 0:
                 node = csab.animationNodes[animIndex]
 
-        if True or node is None:
+        if node is None:
             return (0, 0, 0)
 
         # TODO: Translation is jittery, looks like yes...
         # TODO: Might need to account for rotated translation?
         # TODO: Slow, shouldn't need to keep doing these calculations
         q = fromEulerAngles(cmbBone.rotation)
-        boneTranslation = transformPositionWithQuaternion(cmbBone.translation, q)
+        #boneTranslation = transformPositionWithQuaternion(cmbBone.translation, q)
         boneTranslation = cmbBone.translation
 
         translationX = 0
