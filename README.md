@@ -24,7 +24,6 @@ A Blender 2.79 plugin for importing models from Ocarina of Time 3D.
   - [x] Link's animations
   - [ ] Translation keyframes
   - [ ] Keyframe tangents
-  - [ ] Visibility animations
 - [ ] FACEB support (Link's face animations)
 - [ ] Improve latency (especially for Link, his models take ~1 minute to load)
 - [ ] CMAB support (animated textures)

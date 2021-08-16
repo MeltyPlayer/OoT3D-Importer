@@ -70,7 +70,7 @@ class CsabParser:
     def __init__(self, cmb):
         self.cmb = cmb
 
-    def parseTrack(self, bytes, trackType):
+    def parseTrack(self, bytes, isValueShort = False):
         buffer = bytes.toStream()
 
         type = 0
@@ -90,17 +90,14 @@ class CsabParser:
         keyframeTableIdx = 0x10
         buffer.seek(keyframeTableIdx)
 
-        isLink = self.cmb.isLink
-
         if type == ANIMATION_TRACK_TYPE_LINEAR:
             frames = []
             for i in range(numKeyframes):
                 frame = AnimationKeyframeLinear()
 
-                # For Link, each rotation value is 2 bytes instead of 4.
-                if isLink and trackType == 'rotation':
+                if isValueShort:
                     frame.time = readUInt16(buffer)
-                    frame.value = readSn16(buffer)
+                    frame.value = readSn16(buffer) * math.pi
                 else:
                     frame.time = readUInt32(buffer)
                     frame.value = readFloat(buffer)
@@ -116,8 +113,7 @@ class CsabParser:
             for i in range(numKeyframes):
                 frame = AnimationKeyframeHermite()
 
-                # For Link, each rotation value is 2 bytes instead of 4.
-                if isLink and trackType == 'rotation':
+                if isValueShort:
                     frame.time = readUInt16(buffer)
                     frame.value = readSn16(buffer) * math.pi
                     frame.tangentIn = readSn16(buffer)
@@ -158,7 +154,8 @@ class CsabParser:
         buffer = bytes.toStream()
         assert readString(buffer, 4) == 'anod', "Not reading an anod!"
 
-        boneIndex = readUInt32(buffer)
+        boneIndex = readUShort(buffer)
+        isRotationShort = readUShort(buffer)
 
         translationXOffs = readUInt16(buffer)
         translationYOffs = readUInt16(buffer)
@@ -174,23 +171,23 @@ class CsabParser:
         animationNode = AnimationNode()
         animationNode.boneIndex = boneIndex
         if translationXOffs != 0:
-            animationNode.translationX = self.parseTrack(bytes.slice(translationXOffs), 'translation')
+            animationNode.translationX = self.parseTrack(bytes.slice(translationXOffs))
         if translationYOffs != 0:
-            animationNode.translationY = self.parseTrack(bytes.slice(translationYOffs), 'translation')
+            animationNode.translationY = self.parseTrack(bytes.slice(translationYOffs))
         if translationZOffs != 0:
-            animationNode.translationZ = self.parseTrack(bytes.slice(translationZOffs), 'translation')
+            animationNode.translationZ = self.parseTrack(bytes.slice(translationZOffs))
         if rotationXOffs != 0:
-            animationNode.rotationX = self.parseTrack(bytes.slice(rotationXOffs), 'rotation')
+            animationNode.rotationX = self.parseTrack(bytes.slice(rotationXOffs), isRotationShort)
         if rotationYOffs != 0:
-            animationNode.rotationY = self.parseTrack(bytes.slice(rotationYOffs), 'rotation')
+            animationNode.rotationY = self.parseTrack(bytes.slice(rotationYOffs), isRotationShort)
         if rotationZOffs != 0:
-            animationNode.rotationZ = self.parseTrack(bytes.slice(rotationZOffs), 'rotation')
+            animationNode.rotationZ = self.parseTrack(bytes.slice(rotationZOffs), isRotationShort)
         if scaleXOffs != 0:
-            animationNode.scaleX = self.parseTrack(bytes.slice(scaleXOffs), 'scale')
+            animationNode.scaleX = self.parseTrack(bytes.slice(scaleXOffs))
         if scaleYOffs != 0:
-            animationNode.scaleY = self.parseTrack(bytes.slice(scaleYOffs), 'scale')
+            animationNode.scaleY = self.parseTrack(bytes.slice(scaleYOffs))
         if scaleZOffs != 0:
-            animationNode.scaleZ = self.parseTrack(bytes.slice(scaleZOffs), 'scale')
+            animationNode.scaleZ = self.parseTrack(bytes.slice(scaleZOffs))
 
         return animationNode
 
@@ -400,8 +397,14 @@ def sampleAnimationTrackLinearRotation(track, frame):
     k0 = frames[idx0]
     k1 = frames[idx1]
 
+    r0 = k0.value
+    r1 = k1.value
+
+    # Fixes gimbal lock
+    r1 = r0 + differenceInRadians(r1, r0)
+
     t = (frame - k0.time) / (k1.time - k0.time)
-    return lerpAngle(k0.value, k1.value, t, 2 * math.pi)
+    return lerpAngle(r0, r1, t, 2 * math.pi)
 
 def sampleAnimationTrackRotation(track, frame):
     if track.type == ANIMATION_TRACK_TYPE_LINEAR:
