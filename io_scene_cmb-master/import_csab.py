@@ -19,7 +19,6 @@ from .common import (
         ValueHolder, #TODO maybe not
         get_bone_ids_in_order,
 )
-from .utils import getTranslationCsab, getQuaternionCsab
 
 
 LOG_ANIMATION = False
@@ -38,8 +37,9 @@ class CsabImporter:
     csab_parsed: a parsed csab animation object (i.e. the object returned from csab.parse())
     '''
 
-    def __init__(self, csab_parsed, cmb, anim_name="anim"):
+    def __init__(self, csab_parsed, csabAnimationHelper, cmb, anim_name="anim"):
         self.csab_parsed = csab_parsed
+        self.csabAnimationHelper = csabAnimationHelper
         self.cmb = cmb
 
         # self.blender = ValueHolder()
@@ -124,8 +124,8 @@ class CsabImporter:
 
             previousQuaternion = None
             for i in range(animationLength):
-                translation = getTranslationCsab(self.csab_parsed, cmb_bone, i)
-                quaternion = getQuaternionCsab(self.csab_parsed, cmb_bone, i)
+                translation = self.csabAnimationHelper.getBoneTranslation(csab_anim, cmb_bone, i)
+                quaternion = self.csabAnimationHelper.getBoneQuaternion(csab_anim, cmb_bone, i)
 
                 # Keeps quaternion signs the same to prevent gimbal lock.
                 if previousQuaternion is not None and previousQuaternion.dot(quaternion) < 0:

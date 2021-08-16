@@ -2,10 +2,11 @@ import sys, io, os, os.path, array, bpy, bmesh, operator, math, mathutils
 
 from .common import CLIP_START, CLIP_END, GLOBAL_SCALE
 from .csab import csab_file
+from .csab_animation_helper import CsabAnimationHelper
+from .csab2 import CsabParser
 from .import_cmb import LoadModelFromStream
 from .import_csab import CsabImporter
 from .zar import Zar
-from .csab2 import CsabParser
 
 #TODO: Clean up
 def load_zar( operator, context ):
@@ -52,6 +53,7 @@ def load_zar( operator, context ):
         assert cmb is not None, "No CMB was read from the file!"
 
         # Parse animations
+        csabAnimationHelper = CsabAnimationHelper(cmb)
         csabList = zar.getFiles("csab")
         if csabList:
             for i, csabBytes in enumerate(csabList):
@@ -59,6 +61,7 @@ def load_zar( operator, context ):
 
                 CsabImporter(
                     csab,
+                    csabAnimationHelper,
                     cmb,
                     csabBytes.filename,
                 ).import_anims(
