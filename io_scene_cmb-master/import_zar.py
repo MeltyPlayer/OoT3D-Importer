@@ -1,5 +1,6 @@
 import sys, io, os, os.path, array, bpy, bmesh, operator, math, mathutils
 
+from .array_buffer_slice import ArrayBufferSlice
 from .common import CLIP_START, CLIP_END, GLOBAL_SCALE
 from .csab import csab_file
 from .csab_animation_helper import CsabAnimationHelper
@@ -42,7 +43,7 @@ def load_zar( operator, context ):
             realFilePath = filePath.replace(".zar", "_0_info.zsi")
             if os.path.isfile(realFilePath):
                 with open(realFilePath, "rb") as f:
-                    cmbBytesList.append(f.read())
+                    cmbBytesList.append(ArrayBufferSlice(f.read()))
 
         # Loads models
         cmbs = []
