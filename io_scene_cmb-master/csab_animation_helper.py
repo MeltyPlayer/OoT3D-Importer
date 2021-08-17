@@ -25,26 +25,30 @@ class CsabAnimationHelper:
         if node is None:
             return (0, 0, 0)
 
-        # TODO: Translation is jittery, looks like yes...
-        # TODO: Might need to account for rotated translation?
+        # TODO: Might still be slightly jittery? Are these floating point precision errors?
         # TODO: Slow, shouldn't need to keep doing these calculations
+
+        # THIS IS DEFINITELY RIGHT! This counteracts the original translation.
         q = fromEulerAngles(cmbBone.rotation)
-        #boneTranslation = transformPositionWithQuaternion(cmbBone.translation, q)
-        boneTranslation = cmbBone.translation
+        boneTranslationInitial = transformPositionWithQuaternion(cmbBone.translation, q)
 
-        translationX = 0
-        translationY = 0
-        translationZ = 0
+        # Next, we get the updated rotation. the original translation is the default.
+        translationX = cmbBone.translation[0]
+        translationY = cmbBone.translation[1]
+        translationZ = cmbBone.translation[2]
 
+        # If any channels are provided, these overwrite the default values.
         animFrame = getAnimFrame(csab, frameIndex)
         if node.translationX is not None:
-            translationX = sampleAnimationTrack(node.translationX, animFrame) * GLOBAL_SCALE - boneTranslation[0]
+            translationX = sampleAnimationTrack(node.translationX, animFrame) * GLOBAL_SCALE
         if node.translationY is not None:
-            translationY = sampleAnimationTrack(node.translationY, animFrame) * GLOBAL_SCALE - boneTranslation[1]
+            translationY = sampleAnimationTrack(node.translationY, animFrame) * GLOBAL_SCALE
         if node.translationZ is not None:
-            translationZ = sampleAnimationTrack(node.translationZ, animFrame) * GLOBAL_SCALE - boneTranslation[2]
+            translationZ = sampleAnimationTrack(node.translationZ, animFrame) * GLOBAL_SCALE
 
-        return (translationX, translationY, translationZ)
+        boneTranslationFinal = transformPositionWithQuaternion([translationX, translationY, translationZ], q)
+
+        return (-boneTranslationInitial[0] + boneTranslationFinal[0], -boneTranslationInitial[1] + boneTranslationFinal[1], -boneTranslationInitial[2] + boneTranslationFinal[2])
 
     def getBoneScale(self, csab, bone, frameIndex):
         node = None
