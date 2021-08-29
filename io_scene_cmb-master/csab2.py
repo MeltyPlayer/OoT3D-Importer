@@ -39,8 +39,8 @@ class AnimationTrackInteger:
         self.frames = []
 
 
-LOOP_MODE_ONCE = 1
-LOOP_MODE_REPEAT = 2
+LOOP_MODE_ONCE = 0
+LOOP_MODE_REPEAT = 1
 
 class AnimationNode:
     def __init__(self):
@@ -72,7 +72,7 @@ class CsabParser:
     def __init__(self, cmb):
         self.cmb = cmb
 
-    def parse(self, bytes):
+    def parse(self, filename, bytes):
         buffer = bytes.toStream()
 
         assert readString(buffer, 4) == 'csab', "Not a csab!!"
@@ -91,15 +91,20 @@ class CsabParser:
         assert readUInt32(buffer) == 0x00
 
         duration = readUInt32(buffer)
-        # loop mode?
-        assert readUInt32(buffer) == 0x00
 
-        loopMode = LOOP_MODE_REPEAT
+        # Jasper and M-1 believe this is loop mode, where 0 is a non-looping
+        # and 1 is looping. But this doesn't seem to actually correlate with the
+        # animations you'd expect to be looping vs. non-looping?
+        loopMode = readUInt32(buffer)
+        if loopMode != 0x00:
+            print("Found looping animation: " + filename)
+
         anodCount = readUInt32(buffer)
         boneCount = readUInt32(buffer)
         assert anodCount <= boneCount
 
-        # This appears to be an inverse of the bone index in each array, probably for fast binding?
+        # This appears to be an inverse of the bone index in each array,
+        # probably for fast binding?
         boneToAnimationTable = [None] * boneCount
         boneTableIdx = 0x38;
         buffer.seek(boneTableIdx)

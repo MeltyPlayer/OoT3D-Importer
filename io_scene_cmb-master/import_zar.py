@@ -58,7 +58,7 @@ def load_zar( operator, context ):
         csabList = zar.getFiles("csab")
         if csabList:
             for i, csabBytes in enumerate(csabList):
-                csab = CsabParser(cmb).parse(csabBytes.bytes)
+                csab = CsabParser(cmb).parse(csabBytes.filename, csabBytes.bytes)
 
                 CsabImporter(
                     csab,
