@@ -2,6 +2,8 @@
 
 A Blender 2.79 plugin for importing models from Ocarina of Time 3D.
 
+**Note: Due to difficulties in getting the bone orientation to import properly, this plugin was shelved and I'm now focusing on adding full support for OoT3D to the [FinModelUtility](https://github.com/MeltyPlayer/FinModelUtility).**
+
 ## Credits
 
 - @xdanieldzd, for reverse-engineering and documenting the CMB and CSAB formats.
